@@ -26,7 +26,7 @@ python -m pip install pandas openpyxl Pillow reportlab pypdfium2 pyinstaller
 ## Build Executable and Portable Version
 
 ```powershell
-cd outputs\phq9_tracker
+cd <project-root>
 .\packaging\build_release.ps1 -Version 0.2.0
 ```
 

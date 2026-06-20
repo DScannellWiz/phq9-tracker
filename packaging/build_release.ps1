@@ -17,12 +17,13 @@ python -m PyInstaller `
   --name "PHQ9Tracker" `
   --distpath $Dist `
   --workpath $Build `
-  --add-data "$Root\README.txt;." `
+  --paths "$Root\src" `
+  --add-data "$Root\README.md;." `
   --exclude-module pytest `
   --exclude-module unittest `
   --exclude-module IPython `
   --exclude-module notebook `
-  "$Root\phq9_tracker.py"
+  "$Root\src\phq9_tracker\app.py"
 
 $PortableDir = Join-Path $PortableOut "PHQ9Tracker-Portable-$Version"
 if (Test-Path $PortableDir) {

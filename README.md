@@ -1,182 +1,73 @@
-# \# PHQ-9 Tracker
+# Local PHQ-9 Tracker
 
-# 
+A local-first desktop PHQ-9 tracking application with SQLite storage, manual entry, data export, and clinician discussion reports.
 
-# A local desktop application for recording PHQ-9 assessments, tracking symptom trends over time, generating clinician discussion reports, and exporting assessment data.
+This project is intended to keep health data on the user's computer. It should not upload PHQ-9 records, notes, treatment markers, reports, or exports.
 
-# 
+## Project Structure
 
-# \## Purpose
+```text
+src/phq9_tracker/     Application source code
+data/                 Private local SQLite databases
+exports/              Generated CSV/XLSX data exports
+reports/              Generated clinician reports and screenshots
+docs/                 Project documentation
+packaging/            Build and installer scripts
+tests/                Automated tests
+sample_data/          Fake/sample data only
+```
 
-# 
+## Privacy Rules
 
-# This project was created to provide a private, local-first method of tracking PHQ-9 depression screening results and related treatment events. The application is designed to support discussions with healthcare providers by presenting symptom trends, recent changes, and treatment context in a structured format.
+Do not commit real health data.
 
-# 
+Private files belong in:
 
-# \## Features
+- `data/` for SQLite databases
+- `reports/` for generated PDF/CSV clinician reports
+- `exports/` for generated CSV/XLSX exports
 
-# 
+The `.gitignore` is configured to exclude real databases, reports, exports, logs, caches, screenshots, and build artifacts. Keep fake data only in `sample_data/`.
 
-# \* Import PHQ-9 entries from Excel
+## Running From Source
 
-# \* Store entries in a local SQLite database
+```powershell
+python -m pip install -r requirements.txt
+$env:PYTHONPATH = "$PWD\src"
+python -m phq9_tracker --launch
+```
 
-# \* Manual daily entry workflow
+Or open:
 
-# \* Display the most recent 14 entries
+```text
+Launch PHQ-9 Tracker.bat
+```
 
-# \* Calculate PHQ-9 totals and severity categories
+## Features
 
-# \* Track symptom trends over time
+- Import PHQ-9 entries from Excel.
+- Store entries in a local SQLite database.
+- Show recent entries and item averages.
+- Calculate PHQ-9 totals and severity categories.
+- Allow manual daily entry and optional notes/tags.
+- Track treatment events, including ketamine, therapy, and medication changes.
+- Export data-only CSV/XLSX files.
+- Generate clinician discussion reports with a clickable table of contents, Question 9 monitoring, current status, recent score summaries, item charts, and ketamine response review.
 
-# \* Generate clinician discussion reports
+## Data Locations
 
-# \* Export data to CSV and Excel
+Source runs store the database at:
 
-# \* Monitor Question 9 responses
+```text
+data/phq9_tracker.sqlite
+```
 
-# \* Track treatment events including:
+Installed builds store user data under `%LOCALAPPDATA%\PHQ9Tracker` by default. Portable builds can set `PHQ9_TRACKER_PORTABLE=1` to keep the database beside the executable.
 
-# 
+## AI-Assisted Development
 
-# &#x20; \* Ketamine
+This is an AI-assisted project directed by the repository owner. Changes should be reviewed by the owner before release, especially changes affecting clinical report wording, data handling, packaging, or privacy boundaries.
 
-# &#x20; \* Therapy
+## Disclaimer
 
-# &#x20; \* Medication Start
-
-# &#x20; \* Medication Stop
-
-# &#x20; \* Medication Dose Increase
-
-# &#x20; \* Medication Dose Decrease
-
-# &#x20; \* Custom treatment events
-
-# \* Support optional note tags:
-
-# 
-
-# &#x20; \* Finances
-
-# &#x20; \* Work
-
-# &#x20; \* Family
-
-# &#x20; \* Health
-
-# &#x20; \* Sleep
-
-# &#x20; \* Relationships
-
-# &#x20; \* Other
-
-# 
-
-# \## Reports
-
-# 
-
-# The clinician discussion report includes:
-
-# 
-
-# \* Clickable table of contents
-
-# \* Question 9 monitoring section
-
-# \* Current clinical status summary
-
-# \* Recent 14-day and 30-day summaries
-
-# \* Most recent symptom responses
-
-# \* Item-level analysis
-
-# \* Ketamine response review
-
-# \* Page numbering
-
-# \* Clinical disclaimers
-
-# 
-
-# Spreadsheet exports are designed as data-only exports and include:
-
-# 
-
-# \* Scores
-
-# \* Severity levels
-
-# \* Notes
-
-# \* Tags
-
-# \* Treatment indicators
-
-# 
-
-# \## Installation
-
-# 
-
-# For packaged releases:
-
-# 
-
-# 1\. Run `Launch PHQ-9 Tracker.bat`
-
-# 2\. Follow the build and deployment instructions in `BUILD\_AND\_RELEASE.md`
-
-# 
-
-# \## Project Structure
-
-# 
-
-# ```text
-
-# src/          Application source code
-
-# packaging/    Installer and packaging files
-
-# docs/         Documentation (future)
-
-# ```
-
-# 
-
-# \## Privacy
-
-# 
-
-# \* This application does not upload data.
-
-# \* Data is stored locally on the user's computer.
-
-# \* Exported reports and spreadsheets are generated only when requested.
-
-# \* If the application folder is stored inside a cloud-synced location, those files may be synchronized by that service.
-
-# 
-
-# \## Disclaimer
-
-# 
-
-# This application is intended to support discussions with licensed healthcare professionals.
-
-# 
-
-# It is not a diagnostic tool and should not be used as a substitute for professional medical advice, diagnosis, or treatment.
-
-# 
-## Development Approach
-
-This project was created using an AI-assisted development workflow.
-
-The repository owner defined requirements, designed features, reviewed outputs, tested functionality, prioritized enhancements, and directed project development. Implementation was performed through iterative collaboration with AI coding tools.
-
-All design decisions, feature prioritization, testing, and acceptance of changes remained under human direction.
+This report is for discussion with a licensed clinician and is not a diagnosis.
