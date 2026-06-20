@@ -1,56 +1,176 @@
-# Local PHQ-9 Tracker
+# \# PHQ-9 Tracker
 
 # 
 
-# Open "Launch PHQ-9 Tracker.bat" to start the app.
+# A local desktop application for recording PHQ-9 assessments, tracking symptom trends over time, generating clinician discussion reports, and exporting assessment data.
 
 # 
 
-# What it does:
-
-# \- Imports PHQ-9 entries from Excel.
-
-# \- Stores entries in a local SQLite database named phq9\_tracker.sqlite.
-
-# \- Shows the most recent 14 entries.
-
-# \- Calculates PHQ-9 totals and severity categories.
-
-# \- Draws total-score and individual-item trend charts.
-
-# \- Flags score increases and worsening severity categories.
-
-# \- Allows daily manual entry and treatment-event markers.
-
-# \- Exports data to CSV or Excel.
-
-# \- Generates clinician discussion reports as PDF and CSV.
-
-# \- Redesigned clinician reports include a clickable table of contents, Question 9 monitoring immediately after the TOC, current clinical status, recent 14-day and 30-day summaries, recent symptom responses, item-level charts, ketamine response review, page numbers, and unchanged disclaimers.
-
-# \- Spreadsheet exports are data-only exports with scores, severity, notes/tags, and treatment yes/no columns.
-
-# \- Treatment events support Ketamine, Therapy, Medication Start, Medication Stop, Medication Dose Increase, Medication Dose Decrease, and custom descriptions.
-
-# \- Optional note tags include Finances, Work, Family, Health, Sleep, Relationships, and Other.
-
-# \- See BUILD\_AND\_RELEASE.md for folder-based executable, installer, and portable build instructions.
+# \## Purpose
 
 # 
 
-# Privacy:
-
-# \- This app does not upload data.
-
-# \- Data stays in this folder unless you choose an export location.
-
-# \- If this folder is inside a synced folder, your sync software may copy it. Move the folder to a non-synced location if needed.
+# This project was created to provide a private, local-first method of tracking PHQ-9 depression screening results and related treatment events. The application is designed to support discussions with healthcare providers by presenting symptom trends, recent changes, and treatment context in a structured format.
 
 # 
 
-# Disclaimer:
+# \## Features
 
-# This report is for discussion with a licensed clinician and is not a diagnosis.
+# 
+
+# \* Import PHQ-9 entries from Excel
+
+# \* Store entries in a local SQLite database
+
+# \* Manual daily entry workflow
+
+# \* Display the most recent 14 entries
+
+# \* Calculate PHQ-9 totals and severity categories
+
+# \* Track symptom trends over time
+
+# \* Generate clinician discussion reports
+
+# \* Export data to CSV and Excel
+
+# \* Monitor Question 9 responses
+
+# \* Track treatment events including:
+
+# 
+
+# &#x20; \* Ketamine
+
+# &#x20; \* Therapy
+
+# &#x20; \* Medication Start
+
+# &#x20; \* Medication Stop
+
+# &#x20; \* Medication Dose Increase
+
+# &#x20; \* Medication Dose Decrease
+
+# &#x20; \* Custom treatment events
+
+# \* Support optional note tags:
+
+# 
+
+# &#x20; \* Finances
+
+# &#x20; \* Work
+
+# &#x20; \* Family
+
+# &#x20; \* Health
+
+# &#x20; \* Sleep
+
+# &#x20; \* Relationships
+
+# &#x20; \* Other
+
+# 
+
+# \## Reports
+
+# 
+
+# The clinician discussion report includes:
+
+# 
+
+# \* Clickable table of contents
+
+# \* Question 9 monitoring section
+
+# \* Current clinical status summary
+
+# \* Recent 14-day and 30-day summaries
+
+# \* Most recent symptom responses
+
+# \* Item-level analysis
+
+# \* Ketamine response review
+
+# \* Page numbering
+
+# \* Clinical disclaimers
+
+# 
+
+# Spreadsheet exports are designed as data-only exports and include:
+
+# 
+
+# \* Scores
+
+# \* Severity levels
+
+# \* Notes
+
+# \* Tags
+
+# \* Treatment indicators
+
+# 
+
+# \## Installation
+
+# 
+
+# For packaged releases:
+
+# 
+
+# 1\. Run `Launch PHQ-9 Tracker.bat`
+
+# 2\. Follow the build and deployment instructions in `BUILD\_AND\_RELEASE.md`
+
+# 
+
+# \## Project Structure
+
+# 
+
+# ```text
+
+# src/          Application source code
+
+# packaging/    Installer and packaging files
+
+# docs/         Documentation (future)
+
+# ```
+
+# 
+
+# \## Privacy
+
+# 
+
+# \* This application does not upload data.
+
+# \* Data is stored locally on the user's computer.
+
+# \* Exported reports and spreadsheets are generated only when requested.
+
+# \* If the application folder is stored inside a cloud-synced location, those files may be synchronized by that service.
+
+# 
+
+# \## Disclaimer
+
+# 
+
+# This application is intended to support discussions with licensed healthcare professionals.
+
+# 
+
+# It is not a diagnostic tool and should not be used as a substitute for professional medical advice, diagnosis, or treatment.
 
 # 
 
