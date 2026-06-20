@@ -173,4 +173,10 @@
 # It is not a diagnostic tool and should not be used as a substitute for professional medical advice, diagnosis, or treatment.
 
 # 
+## Development Approach
 
+This project was created using an AI-assisted development workflow.
+
+The repository owner defined requirements, designed features, reviewed outputs, tested functionality, prioritized enhancements, and directed project development. Implementation was performed through iterative collaboration with AI coding tools.
+
+All design decisions, feature prioritization, testing, and acceptance of changes remained under human direction.
