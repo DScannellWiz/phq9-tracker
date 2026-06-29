@@ -14,6 +14,7 @@ class DataExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             os.environ["PHQ9_TRACKER_DB_PATH"] = str(Path(tmp) / "fake.sqlite")
             app = importlib.import_module("phq9_tracker.app")
+            app.DB_PATH = Path(tmp) / "fake.sqlite"
             app.init_db()
             app.upsert_entry("2026-01-01", [0, 1, 2, 1, 0, 1, 2, 1, 0], notes="Fake note", note_tag="Other")
             app.add_event("2026-01-01", "Therapy", "Fake therapy marker")

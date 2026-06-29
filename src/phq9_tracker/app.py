@@ -131,6 +131,18 @@ class EntryRow:
     note_tag: str = ""
 
 
+@dataclass
+class FourteenDayScore:
+    item_counts: list[int]
+    item_scores: list[int]
+    total_score: int
+    severity: str
+    start_date: str | None
+    end_date: str | None
+    entries_included: int
+    calendar_days: int = 14
+
+
 def severity_for_score(score: int) -> str:
     if score <= 4:
         return "Minimal"
@@ -141,6 +153,51 @@ def severity_for_score(score: int) -> str:
     if score <= 19:
         return "Moderately severe"
     return "Severe"
+
+
+def convert_14_day_count_to_item_score(days_present: int) -> int:
+    if days_present <= 0:
+        return 0
+    if days_present <= 6:
+        return 1
+    if days_present <= 11:
+        return 2
+    return 3
+
+
+def calculate_14_day_symptom_frequency_score(entries: list[EntryRow]) -> FourteenDayScore:
+    """Calculate the clinical-style 14-day PHQ-9 symptom-frequency score.
+
+    The window is the most recent 14 calendar days ending on the most recent
+    entry date. For each item, each day with an entry and item score > 0 counts
+    as one symptom-present day. Missing calendar days are treated as no recorded
+    symptom-present day for the count, and entries_included reports how many
+    actual entry rows were available in the window.
+    """
+    if not entries:
+        return FourteenDayScore([0] * 9, [0] * 9, 0, severity_for_score(0), None, None, 0)
+    sorted_entries = sorted(entries, key=lambda row: row.entry_date)
+    end_dt = datetime.fromisoformat(sorted_entries[-1].entry_date).date()
+    start_dt = end_dt - timedelta(days=13)
+    window_entries = [
+        row
+        for row in sorted_entries
+        if start_dt <= datetime.fromisoformat(row.entry_date).date() <= end_dt
+    ]
+    item_counts = []
+    for idx in range(9):
+        item_counts.append(sum(1 for row in window_entries if row.items[idx] > 0))
+    item_scores = [convert_14_day_count_to_item_score(count) for count in item_counts]
+    total_score = sum(item_scores)
+    return FourteenDayScore(
+        item_counts=item_counts,
+        item_scores=item_scores,
+        total_score=total_score,
+        severity=severity_for_score(total_score),
+        start_date=start_dt.isoformat(),
+        end_date=end_dt.isoformat(),
+        entries_included=len(window_entries),
+    )
 
 
 def parse_date(value) -> str | None:
@@ -162,7 +219,8 @@ def parse_date(value) -> str | None:
         return None
 
 
-def init_db(db_path: Path = DB_PATH) -> None:
+def init_db(db_path: Path | None = None) -> None:
+    db_path = db_path or DB_PATH
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
@@ -410,6 +468,7 @@ def add_event(event_date: str, event_type: str, description: str = "", dedupe: b
 
 def export_entries(path: str) -> None:
     rows = fetch_entries()
+    score_14_day = calculate_14_day_symptom_frequency_score(rows)
     event_map: dict[str, set[str]] = {}
     for _, event_date, event_type, _desc in fetch_events():
         event_map.setdefault(event_date, set()).add(normalize_event_type(event_type))
@@ -429,6 +488,8 @@ def export_entries(path: str) -> None:
         record["Ketamine"] = "Yes" if "Ketamine" in event_types else "No"
         record["Therapy"] = "Yes" if "Therapy" in event_types else "No"
         record["Medication Change"] = "Yes" if any(event.startswith("Medication") for event in event_types) else "No"
+        record["Current 14-Day Symptom-Frequency Score"] = score_14_day.total_score
+        record["Current 14-Day Severity"] = score_14_day.severity
         data.append(record)
     fieldnames = [
         "Date",
@@ -441,12 +502,32 @@ def export_entries(path: str) -> None:
         "Ketamine",
         "Therapy",
         "Medication Change",
+        "Current 14-Day Symptom-Frequency Score",
+        "Current 14-Day Severity",
     ]
     if path.lower().endswith(".xlsx"):
         if pd is None:
             raise RuntimeError("Excel export requires pandas/openpyxl.")
         with pd.ExcelWriter(path, engine="openpyxl") as writer:
             pd.DataFrame(data, columns=fieldnames).to_excel(writer, index=False, sheet_name="PHQ-9 Data Export")
+            pd.DataFrame(
+                [
+                    {"Metric": "Window start", "Value": score_14_day.start_date},
+                    {"Metric": "Window end", "Value": score_14_day.end_date},
+                    {"Metric": "Entries included", "Value": score_14_day.entries_included},
+                    {"Metric": "14-day symptom-frequency total score", "Value": score_14_day.total_score},
+                    {"Metric": "14-day severity", "Value": score_14_day.severity},
+                    {"Metric": "Missing-day handling", "Value": "Missing calendar days count as no recorded symptom-present day."},
+                ]
+                + [
+                    {
+                        "Metric": f"Item {idx} 14-day score",
+                        "Value": score,
+                        "Days present": score_14_day.item_counts[idx - 1],
+                    }
+                    for idx, score in enumerate(score_14_day.item_scores, start=1)
+                ]
+            ).to_excel(writer, index=False, sheet_name="14-Day Score")
     else:
         with open(path, "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -869,6 +950,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     last_30_avg = average_total(last_30_entries)
     prev_30_avg = average_total(prev_30_entries)
     avg_30_change = None if last_30_avg is None or prev_30_avg is None else last_30_avg - prev_30_avg
+    score_14_day = calculate_14_day_symptom_frequency_score(entries)
 
     with open(csv_path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
@@ -939,6 +1021,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     current_rows = [
         ["Date range", f"{start} to {end}", "Entries", str(len(entries))],
         ["Most recent score", str(entries[-1].total), "Current severity", entries[-1].severity],
+        ["14-day score", str(score_14_day.total_score), "14-day severity", score_14_day.severity],
         ["Highest score", str(max(totals)), "Lowest score", str(min(totals))],
         ["Overall average", f"{sum(totals) / len(totals):.1f}", "30-day average", "n/a" if last_30_avg is None else f"{last_30_avg:.1f}"],
         ["Change vs prior 30 days", "n/a" if avg_30_change is None else f"{avg_30_change:+.1f}", "Therapy / Ketamine", f"{therapy_count} / {ketamine_count}"],
@@ -948,13 +1031,26 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     story.append(PageBreak())
 
     story.append(anchor_heading("Recent 14-Day and 30-Day Score Summaries", "recent_scores", styles["Heading1"]))
-    recent_14_avg = average_total(recent)
     score_rows = [
-        ["Window", "Entries", "Average", "Minimum", "Maximum", "Most recent"],
-        ["Last 14 entries", str(len(recent)), "n/a" if recent_14_avg is None else f"{recent_14_avg:.1f}", str(min(row.total for row in recent)), str(max(row.total for row in recent)), str(recent[-1].total)],
-        ["Last 30 days", str(len(last_30_entries)), "n/a" if last_30_avg is None else f"{last_30_avg:.1f}", "n/a" if not last_30_entries else str(min(row.total for row in last_30_entries)), "n/a" if not last_30_entries else str(max(row.total for row in last_30_entries)), str(entries[-1].total)],
+        ["Window", "Entries", "Score / average", "Severity", "Date range", "Note"],
+        [
+            "Last 14 calendar days",
+            str(score_14_day.entries_included),
+            str(score_14_day.total_score),
+            score_14_day.severity,
+            f"{score_14_day.start_date} to {score_14_day.end_date}",
+            "Symptom-frequency score; missing days count as no recorded symptom-present day.",
+        ],
+        [
+            "Last 30 days",
+            str(len(last_30_entries)),
+            "n/a" if last_30_avg is None else f"{last_30_avg:.1f} average",
+            "n/a" if last_30_avg is None else severity_for_score(round(last_30_avg)),
+            f"{last_30_start} to {end}",
+            "Average of daily total scores.",
+        ],
     ]
-    add_pdf_table(story, "Recent Score Summary", score_rows, col_widths=[1.5 * inch, 0.8 * inch, 0.9 * inch, 0.9 * inch, 0.9 * inch, 1.0 * inch])
+    add_pdf_table(story, "Recent Score Summary", score_rows, col_widths=[1.35 * inch, 0.65 * inch, 1.0 * inch, 1.1 * inch, 1.35 * inch, 1.55 * inch], wrap_columns={5})
 
     add_pdf_table(
         story,
@@ -976,12 +1072,19 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     story.append(PageBreak())
 
     story.append(anchor_heading("Item-Level Analysis", "item_analysis", styles["Heading1"]))
-    item_rows = [["Item", "Lifetime average", "Last 14-day average", "Most recent"]]
+    item_rows = [["Item", "Lifetime average", "14-day score", "Days present", "Most recent"]]
     for idx, label in enumerate(ITEM_LABELS, start=1):
         values = [row.items[idx - 1] for row in entries]
-        recent_values = [row.items[idx - 1] for row in recent]
-        item_rows.append([f"{idx}. {label}", f"{sum(values) / len(values):.1f}", f"{sum(recent_values) / len(recent_values):.1f}", str(values[-1])])
-    add_pdf_table(story, "Item Summary Statistics", item_rows, col_widths=[3.8 * inch, 1.1 * inch, 1.35 * inch, 0.8 * inch], wrap_columns={0})
+        item_rows.append(
+            [
+                f"{idx}. {label}",
+                f"{sum(values) / len(values):.1f}",
+                str(score_14_day.item_scores[idx - 1]),
+                str(score_14_day.item_counts[idx - 1]),
+                str(values[-1]),
+            ]
+        )
+    add_pdf_table(story, "Item Summary Statistics", item_rows, col_widths=[3.3 * inch, 1.0 * inch, 0.8 * inch, 0.85 * inch, 0.7 * inch], wrap_columns={0})
     chart_entries = entries[-90:]
     for idx, label in enumerate(ITEM_LABELS, start=1):
         item_chart = chart_dir / f"item_{idx}.png"
@@ -1122,7 +1225,7 @@ class PHQ9App(Tk):
         cards = Frame(self.dashboard, bg="#F8FAFC")
         cards.pack(fill="x", pady=(0, 14))
         self.dashboard_cards = {}
-        for label in ["Total Entries", "Most Recent Date", "Most Recent Score", "14-Day Average"]:
+        for label in ["Total Entries", "Most Recent Date", "Most Recent Score", "14-Day Score"]:
             card = Frame(cards, bg="#FFFFFF", padx=14, pady=10, highlightthickness=1, highlightbackground="#CBD5E1")
             card.pack(side=LEFT, fill="x", expand=True, padx=(0, 10))
             Label(card, text=label, bg="#FFFFFF", fg="#64748B", font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -1150,8 +1253,8 @@ class PHQ9App(Tk):
         self.recent_table.pack(fill=BOTH, expand=True, pady=(6, 0))
 
         Label(right, text="Item Averages", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 12, "bold")).pack(anchor="w")
-        self.item_table = ttk.Treeview(right, columns=["Item", "Lifetime Average", "Last 14 Days Average"], show="headings", height=14)
-        for col, width in [("Item", 360), ("Lifetime Average", 130), ("Last 14 Days Average", 150)]:
+        self.item_table = ttk.Treeview(right, columns=["Item", "Lifetime Average", "14-Day Score"], show="headings", height=14)
+        for col, width in [("Item", 360), ("Lifetime Average", 130), ("14-Day Score", 150)]:
             self.item_table.heading(col, text=col)
             self.item_table.column(col, width=width, anchor="w")
         self.item_table.pack(fill=BOTH, expand=True, pady=(6, 0))
@@ -1247,12 +1350,11 @@ class PHQ9App(Tk):
         self.refresh_events()
         entries = fetch_entries()
         if entries:
-            recent = fetch_recent_entries(14)
-            recent_avg = sum(row.total for row in recent) / len(recent) if recent else 0
+            score_14_day = calculate_14_day_symptom_frequency_score(entries)
             self.dashboard_cards["Total Entries"].config(text=str(len(entries)))
             self.dashboard_cards["Most Recent Date"].config(text=entries[-1].entry_date)
             self.dashboard_cards["Most Recent Score"].config(text=f"{entries[-1].total} ({entries[-1].severity})")
-            self.dashboard_cards["14-Day Average"].config(text=f"{recent_avg:.1f} ({severity_for_score(round(recent_avg))})")
+            self.dashboard_cards["14-Day Score"].config(text=f"{score_14_day.total_score} ({score_14_day.severity})")
             self.report_start.set(self.report_start.get() or entries[0].entry_date)
             self.report_end.set(entries[-1].entry_date)
         else:
@@ -1289,16 +1391,17 @@ class PHQ9App(Tk):
         for row in self.item_table.get_children():
             self.item_table.delete(row)
         entries = fetch_entries()
-        recent = fetch_recent_entries(14)
+        score_14_day = calculate_14_day_symptom_frequency_score(entries)
         if not entries:
             return
         for idx, label in enumerate(ITEM_LABELS, start=1):
             values = [row.items[idx - 1] for row in entries]
-            recent_values = [row.items[idx - 1] for row in recent]
+            item_score = score_14_day.item_scores[idx - 1]
+            days_present = score_14_day.item_counts[idx - 1]
             self.item_table.insert(
                 "",
                 END,
-                values=[f"Item {idx}: {label}", f"{sum(values) / len(values):.1f}", f"{sum(recent_values) / len(recent_values):.1f}" if recent_values else "n/a"],
+                values=[f"Item {idx}: {label}", f"{sum(values) / len(values):.1f}", f"{item_score} ({days_present} days)"],
             )
 
     def refresh_events(self):
