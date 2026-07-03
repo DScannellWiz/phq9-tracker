@@ -1,73 +1,67 @@
-# Local PHQ-9 Tracker
+# Local Mental Health Tracker
 
-A local-first desktop PHQ-9 tracking application with SQLite storage, manual entry, data export, and clinician discussion reports.
+A privacy-first desktop application for tracking standardized mental health assessments over time.
 
-This project is intended to keep health data on the user's computer. It should not upload PHQ-9 records, notes, treatment markers, reports, or exports.
+The project began as a PHQ-9 tracker and is evolving into a reusable assessment platform supporting multiple clinician-recognized instruments.
 
-## Project Structure
 
-```text
-src/phq9_tracker/     Application source code
-data/                 Private local SQLite databases
-exports/              Generated CSV/XLSX data exports
-reports/              Generated clinician reports and screenshots
-docs/                 Project documentation
-packaging/            Build and installer scripts
-tests/                Automated tests
-sample_data/          Fake/sample data only
-```
 
-## Privacy Rules
+This project is released under the GNU GPL v3 license.
 
-Do not commit real health data.
+It was created to provide a privacy-first, local-only mental health assessment tracker for individuals and clinicians.
 
-Private files belong in:
+Contributions are welcome.
 
-- `data/` for SQLite databases
-- `reports/` for generated PDF/CSV clinician reports
-- `exports/` for generated CSV/XLSX exports
 
-The `.gitignore` is configured to exclude real databases, reports, exports, logs, caches, screenshots, and build artifacts. Keep fake data only in `sample_data/`.
 
-## Running From Source
+## Goals
 
-```powershell
-python -m pip install -r requirements.txt
-$env:PYTHONPATH = "$PWD\src"
-python -m phq9_tracker --launch
-```
+* Keep all personal health data local.
+* Help users recognize long-term trends.
+* Improve discussions with healthcare providers.
+* Never require cloud storage or user accounts.
 
-Or open:
+## Current Features
 
-```text
-Launch PHQ-9 Tracker.bat
-```
+* PHQ-9 daily tracking
+* Correct 14-day symptom-frequency scoring
+* SQLite local storage
+* Clinician PDF reports
+* CSV/XLSX exports
+* Treatment event tracking
+* Question 9 monitoring
+* Automated testing
 
-## Features
+## Planned Features
 
-- Import PHQ-9 entries from Excel.
-- Store entries in a local SQLite database.
-- Show recent entries and item averages.
-- Calculate PHQ-9 totals and severity categories.
-- Allow manual daily entry and optional notes/tags.
-- Track treatment events, including ketamine, therapy, and medication changes.
-- Export data-only CSV/XLSX files.
-- Generate clinician discussion reports with a clickable table of contents, Question 9 monitoring, current status, recent score summaries, item charts, and ketamine response review.
+* GAD-7 support
+* Multi-assessment dashboard
+* Optional encrypted database
+* Password-protected reports
+* Encrypted backups
+* Enhanced treatment analytics
 
-## Data Locations
+## Privacy
 
-Source runs store the database at:
+The application is designed to keep health information on the user's computer.
 
-```text
-data/phq9_tracker.sqlite
-```
+It does not intentionally upload:
 
-Installed builds store user data under `%LOCALAPPDATA%\PHQ9Tracker` by default. Portable builds can set `PHQ9_TRACKER_PORTABLE=1` to keep the database beside the executable.
+* Assessment responses
+* Notes
+* Reports
+* Exports
+* Treatment events
 
-## AI-Assisted Development
-
-This is an AI-assisted project directed by the repository owner. Changes should be reviewed by the owner before release, especially changes affecting clinical report wording, data handling, packaging, or privacy boundaries.
+Future releases will include optional encryption for databases and exported reports.
 
 ## Disclaimer
 
-This report is for discussion with a licensed clinician and is not a diagnosis.
+This software is intended to assist users in tracking symptoms and supporting discussions with licensed healthcare professionals.
+
+It is **not** a diagnostic tool and should not replace professional medical advice or emergency care.
+
+## AI-Assisted Development
+
+This project is developed using AI-assisted software engineering under the direction of the repository owner. All architectural and privacy decisions are reviewed before release.
+

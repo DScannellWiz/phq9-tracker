@@ -2,73 +2,173 @@
 
 
 
-\## Current Capabilities
+\## Vision
 
 
 
-\* PHQ-9 data entry
+Build a privacy-first, local-only mental health tracking application that helps patients and clinicians identify meaningful trends over time while keeping sensitive health information under the user's control.
+
+
+
+\---
+
+
+
+\# Current Capabilities
+
+
+
+\* PHQ-9 daily tracking
+
+\* Correct 14-day symptom-frequency scoring
 
 \* SQLite local storage
 
-\* Trend analysis
+\* Clinician PDF reports
 
-\* Clinician discussion reports
-
-\* Data export (CSV/XLSX)
-
-\* Question 9 monitoring
+\* CSV/XLSX export
 
 \* Treatment event tracking
 
+\* Question 9 monitoring
+
+\* GitHub-ready project structure
+
+\* Automated testing
+
 \* Installer and portable builds
 
-\* GitHub-safe project structure
+
+
+\---
 
 
 
-\## Near-Term Improvements
+\# Next Iteration (Iteration 004)
 
 
 
-\* Improve ketamine effectiveness analysis
-
-\* Refine symptom trend visualizations
-
-\* Improve note tagging and categorization
-
-\* Add backup and restore capability
-
-\* Improve report formatting and readability
+\## Expand to Multi-Assessment Support
 
 
 
-\## Future Enhancements
+\### Objectives
 
 
 
-\* Multi-user support
+\* Refactor the assessment engine to support multiple standardized questionnaires.
 
-\* Additional assessment instruments (GAD-7, PHQ-15, etc.)
+\* Add GAD-7 alongside PHQ-9.
 
-\* Longitudinal treatment effectiveness reporting
+\* Update reports to include PHQ-9 and GAD-7 summaries.
 
-\* Enhanced symptom correlation analysis
+\* Update exports to include GAD-7.
 
-\* Automated data integrity checks
-
-
-
-\## Research Ideas
+\* Preserve existing PHQ-9 functionality.
 
 
 
-\* Symptom forecasting models
+Success Criteria
 
-\* Tag-to-symptom correlation analysis
 
-\* Treatment response pattern detection
 
-\* Interactive clinician dashboard
+\* PHQ-9 remains fully functional.
+
+\* GAD-7 can be entered daily.
+
+\* Reports include both assessments.
+
+\* Tests validate scoring for both instruments.
+
+
+
+\---
+
+
+
+\# Upcoming Iterations
+
+
+
+\## Security \& Privacy
+
+
+
+\* Move database to a persistent user data location.
+
+\* Optional encrypted database.
+
+\* Optional application password.
+
+\* Password-protected PDF reports.
+
+\* Encrypted backup/restore.
+
+\* Password manager friendly login (copy/paste supported).
+
+
+
+\## Data Management
+
+
+
+\* Automatic backup scheduling.
+
+\* Restore wizard.
+
+\* Database integrity verification.
+
+
+
+\## Reporting
+
+
+
+\* Combined PHQ-9 / GAD-7 clinician report.
+
+\* Improved treatment effectiveness summaries.
+
+\* Better trend visualization.
+
+\* Symptom correlation charts.
+
+
+
+\## Architecture
+
+
+
+\* Generic assessment framework.
+
+\* Reusable scoring engine.
+
+\* Configurable questionnaires.
+
+\* Plugin-ready assessment library.
+
+
+
+\---
+
+
+
+\# Long-Term Vision
+
+
+
+Support multiple validated mental health assessment instruments while remaining:
+
+
+
+\* Local-first
+
+\* Privacy-first
+
+\* Open source
+
+\* Easy to use
+
+\* Clinically useful
 
 
 
