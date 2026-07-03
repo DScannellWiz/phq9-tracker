@@ -35,6 +35,11 @@ Delivered:
 
 ## Upcoming Iterations
 
+- Dashboard should include item-level GAD-7 14-day scores, similar to PHQ-9.
+- Add a clearer “Today’s Check-In” dashboard card.
+- Improve visual layout toward the mockup: cards, spacing, navigation, and trend chart.
+- Polish branding and icon behavior.
+
 ## Security and Privacy
 
 - Optional encrypted database.
