@@ -1,67 +1,56 @@
-# Local Mental Health Tracker
+# Mental Health Tracker
 
 A privacy-first desktop application for tracking standardized mental health assessments over time.
 
-The project began as a PHQ-9 tracker and is evolving into a reusable assessment platform supporting multiple clinician-recognized instruments.
-
-
-
-This project is released under the GNU GPL v3 license.
-
-It was created to provide a privacy-first, local-only mental health assessment tracker for individuals and clinicians.
-
-Contributions are welcome.
-
-
-
-## Goals
-
-* Keep all personal health data local.
-* Help users recognize long-term trends.
-* Improve discussions with healthcare providers.
-* Never require cloud storage or user accounts.
+The project began as a PHQ-9 tracker and now supports a reusable multi-assessment framework with PHQ-9 and GAD-7 as the first two instruments.
 
 ## Current Features
 
-* PHQ-9 daily tracking
-* Correct 14-day symptom-frequency scoring
-* SQLite local storage
-* Clinician PDF reports
-* CSV/XLSX exports
-* Treatment event tracking
-* Question 9 monitoring
-* Automated testing
+- Today's Check-In for PHQ-9, GAD-7, optional daily notes, and optional treatment events.
+- PHQ-9 daily tracking with preserved legacy database compatibility.
+- GAD-7 daily tracking.
+- 14-day symptom-frequency scoring for each assessment.
+- SQLite local storage under the project `data` folder during source runs.
+- Clinician discussion reports with PHQ-9, GAD-7, treatment events, daily notes, and trend summaries.
+- CSV/XLSX exports with both assessments.
+- Treatment event tracking.
+- Automated tests for scoring, migration, exports, and report behavior where local dependencies are available.
 
-## Planned Features
+## Installation
 
-* GAD-7 support
-* Multi-assessment dashboard
-* Optional encrypted database
-* Password-protected reports
-* Encrypted backups
-* Enhanced treatment analytics
+Use Python 3.12 or later on Windows.
 
-## Privacy
+```powershell
+python -m pip install -r requirements.txt
+python -m phq9_tracker
+```
 
-The application is designed to keep health information on the user's computer.
+For source runs, execute commands from the project root so the app can locate `data`, `exports`, and `reports`.
 
-It does not intentionally upload:
+## Basic Usage
 
-* Assessment responses
-* Notes
-* Reports
-* Exports
-* Treatment events
+1. Open the application.
+2. Use **Today's Check-In** to enter PHQ-9 and GAD-7 responses for the day.
+3. Add optional daily notes and, when relevant, a treatment event.
+4. Review current scores and trends on the dashboard.
+5. Generate clinician reports or exports when you want a local file to discuss with a care team.
 
-Future releases will include optional encryption for databases and exported reports.
+## Privacy Philosophy
+
+This app is local-first. It does not intentionally upload assessment responses, notes, treatment events, databases, reports, or exports.
+
+Private runtime data belongs in:
+
+- `data/`
+- `reports/`
+- `exports/`
+
+Those folders are ignored by Git except for placeholder files and documentation. Do not commit real databases, reports, exports, screenshots, logs, PHI, PII, or secrets.
 
 ## Disclaimer
 
-This software is intended to assist users in tracking symptoms and supporting discussions with licensed healthcare professionals.
-
-It is **not** a diagnostic tool and should not replace professional medical advice or emergency care.
+This software is intended to help users track symptoms and prepare for conversations with licensed healthcare professionals. It is not a diagnostic tool and should not replace professional medical advice, crisis support, or emergency care.
 
 ## AI-Assisted Development
 
-This project is developed using AI-assisted software engineering under the direction of the repository owner. All architectural and privacy decisions are reviewed before release.
-
+This project is developed with AI-assisted software engineering under the direction of the repository owner. The owner remains the final reviewer for architecture, privacy, clinical framing, and release decisions.

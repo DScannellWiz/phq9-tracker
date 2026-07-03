@@ -25,6 +25,7 @@ class DataExportTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["PHQ-9 Total Score"], "8")
             self.assertEqual(rows[0]["Question 9 Score"], "0")
+            self.assertEqual(rows[0]["GAD-7 Total Score"], "")
             self.assertEqual(rows[0]["Therapy"], "Yes")
 
 

@@ -1,5 +1,12 @@
 BUG: Report generation dependency detection
 
+Status: Open
+
+Iteration 004 note:
+
+- Automated report tests are dependency-gated because the active Python environment in this Codex session did not expose `reportlab`.
+- The app still needs a more reliable installed/portable dependency discovery path before report generation can be considered frictionless in all builds.
+
 
 
 When generating reports or spreadsheets, the application may incorrectly report missing Python dependencies (openpyxl, reportlab, Pillow, pandas) despite a valid Python environment being available.

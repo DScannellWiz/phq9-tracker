@@ -1,2 +1,1 @@
-"""Local PHQ-9 tracker package."""
-
+"""Local Mental Health Tracker package."""

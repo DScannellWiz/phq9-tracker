@@ -4,6 +4,8 @@
 
 Use a folder-based PyInstaller build (`--onedir`) rather than a single-file executable. This keeps startup faster, makes troubleshooting easier, reduces antivirus false positives, and supports bundled assets and future report templates more cleanly.
 
+The executable name remains `PHQ9Tracker.exe` for backward compatibility during the transition, while the visible application name is now **Mental Health Tracker**.
+
 ## Dependencies
 
 Recommended build environment:
@@ -13,7 +15,7 @@ Recommended build environment:
 - `openpyxl`
 - `Pillow`
 - `reportlab`
-- `pypdfium2` for screenshot verification
+- `pypdfium2` for screenshot/PDF verification
 - `pyinstaller`
 - Inno Setup 6 for the Windows installer
 
@@ -38,6 +40,16 @@ This creates:
 
 The portable launcher sets `PHQ9_TRACKER_PORTABLE=1`, which keeps `phq9_tracker.sqlite` inside the portable folder.
 
+## Application Icon
+
+The build uses the existing icon asset:
+
+```text
+packaging\assets\PHQ9_Tracker.ico
+```
+
+This icon was copied from the user's shared application icon template folder and should remain a checked-in packaging asset unless replaced intentionally in a future branding iteration.
+
 ## Build Installer
 
 Install Inno Setup, then compile:
@@ -46,7 +58,7 @@ Install Inno Setup, then compile:
 iscc .\packaging\PHQ9Tracker.iss
 ```
 
-The installer deploys the folder-based app under Program Files, creates Start Menu shortcuts, optionally creates a desktop shortcut, and registers an uninstaller in Windows Apps & Features.
+The installer deploys the folder-based app under Program Files, creates Start Menu shortcuts under **Mental Health Tracker**, optionally creates a desktop shortcut, and registers an uninstaller in Windows Apps & Features.
 
 Installed builds store user data in:
 
@@ -56,6 +68,12 @@ Installed builds store user data in:
 
 This preserves user data during upgrades because installer file replacement does not overwrite LocalAppData.
 
+## Database Migration
+
+Iteration 004 keeps the legacy `phq9_entries` table and adds `assessment_entries`.
+
+On startup, existing PHQ-9 rows are copied into `assessment_entries` using `INSERT OR IGNORE`. GAD-7 entries are stored only in `assessment_entries`. This keeps older PHQ-9 behavior intact while giving future assessments a reusable storage path.
+
 ## Size Reduction
 
 Current build script excludes common development-only modules such as test tooling, notebooks, and IPython. Inno Setup uses LZMA2 solid compression. Additional opportunities:
@@ -63,7 +81,7 @@ Current build script excludes common development-only modules such as test tooli
 - Build inside a clean virtual environment.
 - Avoid installing large unused scientific packages.
 - Inspect `dist\PHQ9Tracker` and remove unused sample data, caches, or tests before installer compilation.
-- Keep report screenshots and generated PDFs out of the packaged app folder.
+- Keep report screenshots, generated PDFs, databases, and exports out of the packaged app folder.
 
 ## Versioning
 
@@ -77,9 +95,9 @@ Update these together for each release:
 
 - Launch installed app.
 - Launch portable app.
-- Confirm existing database loads.
-- Generate clinician PDF and CSV report.
-- Confirm Question 9 appears immediately after the table of contents.
-- Confirm removed sections do not appear.
+- Confirm existing PHQ-9 database rows migrate into `assessment_entries`.
+- Save a Today's Check-In with PHQ-9, GAD-7, notes, and optional treatment event.
+- Generate clinician PDF and CSV report when `reportlab` and `Pillow` are available.
 - Export CSV and Excel data-only spreadsheets.
 - Confirm installed app data remains under LocalAppData after reinstall/upgrade.
+- Confirm no real databases, reports, exports, logs, screenshots, PHI, or PII are staged for Git.

@@ -18,6 +18,7 @@ python -m PyInstaller `
   --distpath $Dist `
   --workpath $Build `
   --paths "$Root\src" `
+  --icon "$Root\packaging\assets\PHQ9_Tracker.ico" `
   --add-data "$Root\README.md;." `
   --exclude-module pytest `
   --exclude-module unittest `
