@@ -54,3 +54,21 @@ Fix:
 - Missing calendar days count as no recorded symptom-present day and are documented via `entries_included`.
 - Updated GUI dashboard, item summaries, clinician report, and data export labels/calculations.
 
+---
+
+Application Branding
+
+Status: Open
+
+Description:
+Executable and running application do not consistently use the Mental Health Tracker application icon.
+
+Expected:
+- EXE icon uses PHQ9_Tracker.ico (or future MentalHealthTracker.ico)
+- Window icon uses the same icon
+- Installer uses the same icon
+- Desktop shortcut defaults to the same icon
+
+Priority:
+Low
+
