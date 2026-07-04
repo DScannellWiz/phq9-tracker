@@ -35,10 +35,16 @@ Delivered:
 
 ## Upcoming Iterations
 
-- Dashboard should include item-level GAD-7 14-day scores, similar to PHQ-9.
-- Add a clearer “Today’s Check-In” dashboard card.
-- Improve visual layout toward the mockup: cards, spacing, navigation, and trend chart.
-- Polish branding and icon behavior.
+Iteration 005: User Experience Refresh
+
+Goals:
+- Move toward the card-based dashboard mockup.
+- Separate PHQ-9 and GAD-7 item summaries into distinct sections.
+- Make Today’s Check-In the central workflow.
+- Add trend chart area for PHQ-9 and GAD-7.
+- Improve spacing, alignment, and readability.
+- Keep all current scoring, database, report, and export behavior intact.
+- Do not perform major data model changes.
 
 ## Security and Privacy
 
