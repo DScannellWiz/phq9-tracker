@@ -34,6 +34,19 @@ Application automatically locates bundled Python or installed Python environment
 
 ---
 
+REPORTING NOTE: 14-day executive comparison
+
+Status: Implemented in Iteration 005
+
+- The current period is the 14 calendar days ending on the selected report end date.
+- The comparison period is the immediately preceding 14 calendar days.
+- PHQ-9 and GAD-7 use the same symptom-frequency conversion already used elsewhere in the app.
+- Entry coverage is displayed because missing days count as no recorded symptom-present response.
+- If either period has no entries, the report states that there is not enough data for comparison.
+
+
+---
+
 BUG: Incorrect 14-day PHQ-9 scoring logic
 
 Status: Fixed
@@ -72,3 +85,39 @@ Expected:
 Priority:
 Low
 
+---
+
+BUG: Duplicate notes and treatment events when updating an existing daily check-in
+
+Status: Open
+
+Priority: High
+
+Description:
+
+When a user resubmits a check-in for a date that already contains data, the application may create additional note and treatment-event records instead of updating the existing records.
+
+Observed behavior:
+
+- A user updated an existing date to add a therapy treatment tag and appointment note.
+- The user then submitted the same date again after correcting the GAD-7 responses and changing one word in the note.
+- The assessment scores did not appear to duplicate.
+- The therapy treatment event and note were duplicated.
+
+Expected:
+
+- The application detects when data already exists for the selected date.
+- The user can review and edit the existing PHQ-9, GAD-7, note, and treatment-event data.
+- Resubmitting a daily check-in updates existing records by default rather than silently creating duplicates.
+- The application provides an explicit option to add an additional treatment event when multiple legitimate events occurred on the same date.
+- Users can delete accidental notes, treatment events, or assessment entries.
+- Destructive actions require confirmation.
+
+Implementation considerations:
+
+- Add a History or Manage Entries screen.
+- Allow users to select a date and view all associated records.
+- Provide edit and delete controls for assessments, notes, and treatment events.
+- Preserve stable record IDs when updating existing records.
+- Distinguish between “Update existing entry” and “Add another event.”
+- Add automated tests covering repeated submissions, edits, deletions, and multiple valid treatment events on one date.

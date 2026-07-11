@@ -20,6 +20,19 @@ Build a privacy-first, local-only mental health tracking application that helps 
 - Automated tests.
 - Installer and portable build scripts.
 
+## Completed Iteration 005
+
+Iteration 005 began the Clarity and Insight work by making recent changes understandable at a glance.
+
+Delivered:
+
+- Executive summary at the beginning of the clinician PDF report.
+- Adjacent 14-calendar-day comparisons for PHQ-9 and GAD-7.
+- Neutral lower, higher, unchanged, and insufficient-data wording.
+- Entry-coverage disclosure so missing check-ins are visible.
+- Focused dashboard cards that reuse the same comparison logic.
+- Automated comparison tests and rendered PDF validation with synthetic data.
+
 ## Completed Iteration 004
 
 Iteration 004 introduced the reusable assessment framework and began the transition from PHQ-9 Tracker to Mental Health Tracker.
@@ -35,7 +48,7 @@ Delivered:
 
 ## Upcoming Iterations
 
-Iteration 005: User Experience Refresh
+Iteration 006: User Experience Refresh
 
 Goals:
 - Move toward the card-based dashboard mockup.
@@ -45,6 +58,9 @@ Goals:
 - Improve spacing, alignment, and readability.
 - Keep all current scoring, database, report, and export behavior intact.
 - Do not perform major data model changes.
+- Add a History / Manage Entries workflow for reviewing, editing, and deleting existing assessments, notes, and treatment events.
+- Detect existing data when resubmitting a date and update records by default rather than creating accidental duplicates.
+- Preserve support for multiple legitimate treatment events on the same date through an explicit “Add another event” action.
 
 ## Security and Privacy
 

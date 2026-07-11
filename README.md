@@ -11,7 +11,8 @@ The project began as a PHQ-9 tracker and now supports a reusable multi-assessmen
 - GAD-7 daily tracking.
 - 14-day symptom-frequency scoring for each assessment.
 - SQLite local storage under the project `data` folder during source runs.
-- Clinician discussion reports with PHQ-9, GAD-7, treatment events, daily notes, and trend summaries.
+- Clinician discussion reports with a current-versus-previous 14-day executive summary, PHQ-9, GAD-7, treatment events, daily notes, and trend summaries.
+- Dashboard cards showing each current 14-day score and its direction relative to the preceding 14 days.
 - CSV/XLSX exports with both assessments.
 - Treatment event tracking.
 - Automated tests for scoring, migration, exports, and report behavior where local dependencies are available.

@@ -188,6 +188,25 @@ class FourteenDayScore:
     calendar_days: int = 14
 
 
+@dataclass(frozen=True)
+class PeriodComparison:
+    assessment_id: str
+    current: FourteenDayScore
+    previous: FourteenDayScore
+    current_start: str
+    current_end: str
+    previous_start: str
+    previous_end: str
+
+    @property
+    def delta(self) -> int:
+        return self.current.total_score - self.previous.total_score
+
+    @property
+    def has_comparable_data(self) -> bool:
+        return self.current.entries_included > 0 and self.previous.entries_included > 0
+
+
 def severity_for_score(score: int) -> str:
     if score <= 4:
         return "Minimal"
@@ -272,6 +291,80 @@ def calculate_14_day_symptom_frequency_score(
         end_date=end_dt.isoformat(),
         entries_included=len(window_entries),
     )
+
+
+def calculate_symptom_frequency_score_for_window(
+    entries: list[EntryRow | AssessmentEntryRow],
+    window_start: str,
+    window_end: str,
+    item_count: int,
+    assessment_id: str,
+) -> FourteenDayScore:
+    """Calculate a symptom-frequency score for an explicit calendar window."""
+    start_dt = datetime.fromisoformat(window_start).date()
+    end_dt = datetime.fromisoformat(window_end).date()
+    if end_dt < start_dt:
+        raise ValueError("Window end date must not be before its start date.")
+    window_entries = [
+        row
+        for row in entries
+        if start_dt <= datetime.fromisoformat(row.entry_date).date() <= end_dt
+    ]
+    item_counts = [
+        sum(1 for row in window_entries if idx < len(row.items) and row.items[idx] > 0)
+        for idx in range(item_count)
+    ]
+    item_scores = [convert_14_day_count_to_item_score(count) for count in item_counts]
+    total_score = sum(item_scores)
+    return FourteenDayScore(
+        item_counts=item_counts,
+        item_scores=item_scores,
+        total_score=total_score,
+        severity=severity_for_assessment(assessment_id, total_score),
+        start_date=window_start,
+        end_date=window_end,
+        entries_included=len(window_entries),
+        calendar_days=(end_dt - start_dt).days + 1,
+    )
+
+
+def compare_recent_14_day_periods(
+    entries: list[EntryRow | AssessmentEntryRow],
+    assessment_id: str,
+    end_date: str,
+) -> PeriodComparison:
+    """Compare the latest 14 calendar days with the immediately prior 14 days."""
+    definition = ASSESSMENTS[assessment_id]
+    current_end = datetime.fromisoformat(end_date).date()
+    current_start = current_end - timedelta(days=13)
+    previous_end = current_start - timedelta(days=1)
+    previous_start = previous_end - timedelta(days=13)
+    current = calculate_symptom_frequency_score_for_window(
+        entries, current_start.isoformat(), current_end.isoformat(), definition.item_count, assessment_id
+    )
+    previous = calculate_symptom_frequency_score_for_window(
+        entries, previous_start.isoformat(), previous_end.isoformat(), definition.item_count, assessment_id
+    )
+    return PeriodComparison(
+        assessment_id=assessment_id,
+        current=current,
+        previous=previous,
+        current_start=current_start.isoformat(),
+        current_end=current_end.isoformat(),
+        previous_start=previous_start.isoformat(),
+        previous_end=previous_end.isoformat(),
+    )
+
+
+def comparison_trend_text(comparison: PeriodComparison, include_arrow: bool = False) -> str:
+    """Return neutral, non-diagnostic wording for a two-period comparison."""
+    if not comparison.has_comparable_data:
+        return "Not enough data for comparison"
+    if comparison.delta < 0:
+        return f"{'Down - ' if include_arrow else ''}Lower by {abs(comparison.delta)} points"
+    if comparison.delta > 0:
+        return f"{'Up - ' if include_arrow else ''}Higher by {comparison.delta} points"
+    return f"{'Right - ' if include_arrow else ''}No score change"
 
 
 def parse_date(value) -> str | None:
@@ -1169,6 +1262,11 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     if not entries and not gad_entries:
         raise ValueError("No entries found in the selected date range.")
     events = fetch_events(start, end)
+    comparison_start = (datetime.fromisoformat(end).date() - timedelta(days=27)).isoformat()
+    comparison_phq_entries = fetch_assessment_entries("phq9", comparison_start, end)
+    comparison_gad_entries = fetch_assessment_entries("gad7", comparison_start, end)
+    phq_comparison = compare_recent_14_day_periods(comparison_phq_entries, "phq9", end)
+    gad_comparison = compare_recent_14_day_periods(comparison_gad_entries, "gad7", end)
     recent = entries[-14:]
     totals = [row.total for row in entries]
     gad_recent = gad_entries[-14:]
@@ -1245,7 +1343,63 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         Paragraph(f"Date range: {start} to {end}", styles["Normal"]),
         Paragraph(DISCLAIMER, styles["BodyText"]),
         Spacer(1, 0.18 * inch),
+        anchor_heading("Executive Summary", "executive_summary", styles["Heading1"]),
+        Paragraph(
+            f"This summary compares the latest 14 calendar days ({phq_comparison.current_start} to "
+            f"{phq_comparison.current_end}) with the preceding 14 days ({phq_comparison.previous_start} "
+            f"to {phq_comparison.previous_end}). Missing days are treated as days without a recorded "
+            "symptom-present response, so entry coverage is shown alongside each result.",
+            styles["BodyText"],
+        ),
+        Spacer(1, 0.08 * inch),
+    ]
+    executive_rows = [["Assessment", "Current 14 days", "Previous 14 days", "Change", "Entry coverage"]]
+    for comparison in (phq_comparison, gad_comparison):
+        definition = ASSESSMENTS[comparison.assessment_id]
+        executive_rows.append(
+            [
+                definition.display_name,
+                f"{comparison.current.total_score} ({comparison.current.severity})",
+                (
+                    f"{comparison.previous.total_score} ({comparison.previous.severity})"
+                    if comparison.previous.entries_included
+                    else "n/a"
+                ),
+                comparison_trend_text(comparison),
+                f"{comparison.current.entries_included}/14 current; {comparison.previous.entries_included}/14 previous",
+            ]
+        )
+    add_pdf_table(
+        story,
+        "14-Day Comparison",
+        executive_rows,
+        col_widths=[1.0 * inch, 1.25 * inch, 1.25 * inch, 1.45 * inch, 1.55 * inch],
+        wrap_columns={1, 2, 3, 4},
+    )
+    comparable = [comparison for comparison in (phq_comparison, gad_comparison) if comparison.has_comparable_data]
+    if comparable:
+        directions = []
+        for comparison in comparable:
+            label = ASSESSMENTS[comparison.assessment_id].display_name
+            if comparison.delta < 0:
+                directions.append(f"{label} was lower")
+            elif comparison.delta > 0:
+                directions.append(f"{label} was higher")
+            else:
+                directions.append(f"{label} was unchanged")
+        overall_text = "; ".join(directions) + " than in the preceding period."
+    else:
+        overall_text = "The preceding period does not contain enough recorded data for a score comparison."
+    story.extend(
+        [
+            Paragraph(f"Overall pattern: {overall_text}", styles["BodyText"]),
+            Paragraph(
+                "These changes summarize recorded responses and should be interpreted with the detailed item tables, notes, treatment events, and a licensed clinician.",
+                styles["BodyText"],
+            ),
+            Spacer(1, 0.18 * inch),
         Paragraph("Table of Contents", styles["Title"]),
+        toc_link("Executive Summary", "executive_summary", styles["Normal"]),
         toc_link("Question 9 Monitoring", "q9", styles["Normal"]),
         toc_link("Clinical Summary / Current Status", "clinical_summary", styles["Normal"]),
         toc_link("Recent 14-Day and 30-Day Score Summaries", "recent_scores", styles["Normal"]),
@@ -1258,7 +1412,8 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         PageBreak(),
         anchor_heading("Question 9 Monitoring", "q9", styles["Heading1"]),
         Paragraph('"Thoughts that you would be better off dead or of hurting yourself"', styles["Heading2"]),
-    ]
+        ]
+    )
     item9_values = [row.items[8] for row in entries]
     add_pdf_table(
         story,
@@ -1568,7 +1723,7 @@ class PHQ9App(Tk):
         cards = Frame(self.dashboard, bg="#F8FAFC")
         cards.pack(fill="x", pady=(0, 14))
         self.dashboard_cards = {}
-        for label in ["PHQ-9 Current", "GAD-7 Current", "PHQ-9 14-Day", "GAD-7 14-Day", "Most Recent Date"]:
+        for label in ["PHQ-9 Current", "GAD-7 Current", "PHQ-9 14-Day Trend", "GAD-7 14-Day Trend", "Most Recent Date"]:
             card = Frame(cards, bg="#FFFFFF", padx=14, pady=10, highlightthickness=1, highlightbackground="#CBD5E1")
             card.pack(side=LEFT, fill="x", expand=True, padx=(0, 10))
             Label(card, text=label, bg="#FFFFFF", fg="#64748B", font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -1728,12 +1883,25 @@ class PHQ9App(Tk):
         gad_entries = fetch_assessment_entries("gad7")
         all_dates = sorted({row.entry_date for row in phq_entries + gad_entries})
         if all_dates:
-            phq_14_day = calculate_14_day_symptom_frequency_score(phq_entries, 9, "phq9")
-            gad_14_day = calculate_14_day_symptom_frequency_score(gad_entries, 7, "gad7")
+            latest_date = all_dates[-1]
+            phq_comparison = compare_recent_14_day_periods(phq_entries, "phq9", latest_date)
+            gad_comparison = compare_recent_14_day_periods(gad_entries, "gad7", latest_date)
             self.dashboard_cards["PHQ-9 Current"].config(text=f"{phq_entries[-1].total} ({phq_entries[-1].severity})" if phq_entries else "--")
             self.dashboard_cards["GAD-7 Current"].config(text=f"{gad_entries[-1].total} ({gad_entries[-1].severity})" if gad_entries else "--")
-            self.dashboard_cards["PHQ-9 14-Day"].config(text=f"{phq_14_day.total_score} ({phq_14_day.severity})" if phq_entries else "--")
-            self.dashboard_cards["GAD-7 14-Day"].config(text=f"{gad_14_day.total_score} ({gad_14_day.severity})" if gad_entries else "--")
+            self.dashboard_cards["PHQ-9 14-Day Trend"].config(
+                text=(
+                    f"{phq_comparison.current.total_score} - {comparison_trend_text(phq_comparison, include_arrow=True)}"
+                    if phq_entries
+                    else "--"
+                )
+            )
+            self.dashboard_cards["GAD-7 14-Day Trend"].config(
+                text=(
+                    f"{gad_comparison.current.total_score} - {comparison_trend_text(gad_comparison, include_arrow=True)}"
+                    if gad_entries
+                    else "--"
+                )
+            )
             self.dashboard_cards["Most Recent Date"].config(text=all_dates[-1])
             self.report_start.set(self.report_start.get() or all_dates[0])
             self.report_end.set(all_dates[-1])
