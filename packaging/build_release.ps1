@@ -31,7 +31,7 @@ if (Test-Path $PortableDir) {
     Remove-Item -Recurse -Force $PortableDir
 }
 Copy-Item -Recurse (Join-Path $Dist "PHQ9Tracker") $PortableDir
-Set-Content -Path (Join-Path $PortableDir "Launch Portable PHQ-9 Tracker.bat") -Value @"
+Set-Content -Path (Join-Path $PortableDir "Launch Portable Mental Health Tracker.bat") -Value @"
 @echo off
 setlocal
 set PHQ9_TRACKER_PORTABLE=1

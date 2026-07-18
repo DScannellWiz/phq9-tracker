@@ -64,8 +64,8 @@ class MultiAssessmentTests(unittest.TestCase):
         app.export_entries(str(output))
         with output.open(newline="", encoding="utf-8") as handle:
             rows = list(csv.DictReader(handle))
-        self.assertEqual(rows[0]["PHQ-9 Total Score"], "8")
-        self.assertEqual(rows[0]["GAD-7 Total Score"], "6")
+        self.assertEqual(rows[0]["PHQ-9 Daily Severity Score"], "8")
+        self.assertEqual(rows[0]["GAD-7 Daily Severity Score"], "6")
         self.assertEqual(rows[0]["Daily Notes"], "combined note")
         self.assertEqual(rows[0]["Therapy"], "Yes")
 

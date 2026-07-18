@@ -81,6 +81,7 @@ PROJECT_ROOT = APP_DIR.parents[1] if APP_DIR.parent.name == "src" else APP_DIR.p
 DATA_DIR = PROJECT_ROOT / "data"
 EXPORTS_DIR = PROJECT_ROOT / "exports"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+ICON_PATH = PROJECT_ROOT / "packaging" / "assets" / "PHQ9_Tracker.ico"
 
 
 def default_db_path() -> Path:
@@ -99,6 +100,34 @@ def default_db_path() -> Path:
 DB_PATH = default_db_path()
 BUNDLED_PYTHON = Path(os.environ["PHQ9_TRACKER_BUNDLED_PYTHON"]) if os.environ.get("PHQ9_TRACKER_BUNDLED_PYTHON") else None
 DISCLAIMER = "This report is for discussion with a licensed clinician and is not a diagnosis."
+DAILY_SCORE_LABEL = "Daily Severity Score"
+FREQUENCY_SCORE_LABEL = "14-Day Symptom Frequency Score"
+SCORING_EXPLANATION = """Mental Health Tracker calculates two related but different measurements.
+
+Daily Severity Score
+Each PHQ-9 or GAD-7 item is rated from 0 (symptom not present) to 3 (high symptom severity). The item responses are summed for that date. This answers: How severe were the reported symptoms on this particular day?
+
+14-Day Symptom Frequency Score
+For the 14 calendar days ending on the selected date, each response greater than 0 counts as one symptom-present day. For each item, 0 days = 0 points, 1-6 days = 1 point, 7-11 days = 2 points, and 12-14 days = 3 points. The converted item scores are summed. This answers: How consistently were these symptoms present during the last 14 days?
+
+Important distinction
+A daily response of 1 and a daily response of 3 each count as one symptom-present day in the 14-day calculation, although they contribute differently to the Daily Severity Score. For example, an item present on 6 days receives 1 frequency point; an item present on 12 days receives 3 frequency points.
+
+Data coverage
+The application displays how many daily entries were available. Calendar days without an entry are treated as days with no recorded symptom-present response; that is not proof that the symptom was absent.
+
+Mindful check-ins
+Daily check-ins should encourage mindful reflection rather than rapid completion. The application intentionally requires users to consider each symptom individually to reduce habitual responses and improve the quality of the recorded data."""
+
+TREATMENT_EVENT_TYPES = [
+    "Therapy",
+    "Ketamine infusion",
+    "Psychiatry appointment",
+    "Medication change",
+    "Primary care appointment",
+    "Exercise",
+    "Support group",
+]
 
 PHQ9_ITEM_LABELS = [
     "Little interest or pleasure in doing things",
@@ -677,6 +706,100 @@ def fetch_events(start: str | None = None, end: str | None = None) -> list[tuple
         ).fetchall()
 
 
+def fetch_day_data(entry_date: str) -> dict[str, object]:
+    """Return all editable records for one calendar date."""
+    assessments = {
+        assessment_id: rows[0]
+        for assessment_id in ASSESSMENT_ORDER
+        if (rows := fetch_assessment_entries(assessment_id, entry_date, entry_date))
+    }
+    notes = ""
+    note_tag = ""
+    for assessment_id in ASSESSMENT_ORDER:
+        row = assessments.get(assessment_id)
+        if row and (row.notes or row.note_tag):
+            notes = row.notes
+            note_tag = row.note_tag
+            break
+    return {
+        "assessments": assessments,
+        "notes": notes,
+        "note_tag": note_tag,
+        "events": fetch_events(entry_date, entry_date),
+    }
+
+
+def update_assessment_entry(entry_id: int, assessment_id: str, items: list[int]) -> None:
+    """Update an assessment in place so its stable record ID is preserved."""
+    definition = ASSESSMENTS[assessment_id]
+    if len(items) != definition.item_count or any(score < 0 or score > 3 for score in items):
+        raise ValueError(f"{definition.display_name} requires {definition.item_count} item scores from 0 to 3.")
+    padded_items = [*items, *([None] * (9 - len(items)))]
+    total = sum(items)
+    severity = severity_for_assessment(assessment_id, total)
+    assignments = ", ".join([*(f"item{i} = ?" for i in range(1, 10)), "total = ?", "severity = ?", "updated_at = CURRENT_TIMESTAMP"])
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        cursor = conn.execute(
+            f"UPDATE assessment_entries SET {assignments} WHERE id = ? AND assessment_id = ?",
+            (*padded_items, total, severity, entry_id, assessment_id),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("The selected assessment no longer exists.")
+        if assessment_id == "phq9":
+            entry_date_row = conn.execute("SELECT entry_date FROM assessment_entries WHERE id = ?", (entry_id,)).fetchone()
+            if entry_date_row:
+                legacy_assignments = ", ".join([*(f"item{i} = ?" for i in range(1, 10)), "total = ?", "severity = ?", "updated_at = CURRENT_TIMESTAMP"])
+                conn.execute(
+                    f"UPDATE phq9_entries SET {legacy_assignments} WHERE entry_date = ?",
+                    (*items, total, severity, entry_date_row[0]),
+                )
+
+
+def update_daily_note(entry_date: str, notes: str, note_tag: str = "") -> None:
+    """Synchronize the single day-level note across assessment and legacy rows."""
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        conn.execute(
+            "UPDATE assessment_entries SET notes = ?, note_tag = ?, updated_at = CURRENT_TIMESTAMP WHERE entry_date = ?",
+            (notes, note_tag, entry_date),
+        )
+        conn.execute(
+            "UPDATE phq9_entries SET notes = ?, note_tag = ?, updated_at = CURRENT_TIMESTAMP WHERE entry_date = ?",
+            (notes, note_tag, entry_date),
+        )
+
+
+def delete_daily_note(entry_date: str) -> None:
+    update_daily_note(entry_date, "", "")
+
+
+def delete_assessment_entry(entry_id: int, assessment_id: str) -> None:
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        row = conn.execute(
+            "SELECT entry_date FROM assessment_entries WHERE id = ? AND assessment_id = ?",
+            (entry_id, assessment_id),
+        ).fetchone()
+        if not row:
+            return
+        conn.execute("DELETE FROM assessment_entries WHERE id = ? AND assessment_id = ?", (entry_id, assessment_id))
+        if assessment_id == "phq9":
+            conn.execute("DELETE FROM phq9_entries WHERE entry_date = ?", (row[0],))
+
+
+def update_event(event_id: int, event_date: str, event_type: str, description: str = "") -> None:
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        cursor = conn.execute(
+            "UPDATE treatment_events SET event_date = ?, event_type = ?, description = ? WHERE id = ?",
+            (event_date, event_type, description, event_id),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("The selected treatment event no longer exists.")
+
+
+def delete_event(event_id: int) -> None:
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        conn.execute("DELETE FROM treatment_events WHERE id = ?", (event_id,))
+
+
 def import_spreadsheet(path: str) -> int:
     if load_workbook is None:
         raise RuntimeError("The openpyxl package is required for Excel import.")
@@ -745,7 +868,7 @@ def import_spreadsheet(path: str) -> int:
     return count
 
 
-def add_event(event_date: str, event_type: str, description: str = "", dedupe: bool = False) -> None:
+def add_event(event_date: str, event_type: str, description: str = "", dedupe: bool = True) -> int:
     with closing(sqlite3.connect(DB_PATH)) as conn, conn:
         if dedupe:
             found = conn.execute(
@@ -756,12 +879,34 @@ def add_event(event_date: str, event_type: str, description: str = "", dedupe: b
                 (event_date, event_type, description),
             ).fetchone()
             if found:
-                return
-        conn.execute(
+                return int(found[0])
+        cursor = conn.execute(
             "INSERT INTO treatment_events (event_date, event_type, description) VALUES (?, ?, ?)",
             (event_date, event_type, description),
         )
         conn.commit()
+        return int(cursor.lastrowid)
+
+
+def upsert_daily_event(event_date: str, event_type: str, description: str = "") -> int:
+    """Update the day's existing event tag or insert it once.
+
+    The explicit event-management workflow can still add another legitimate event.
+    """
+    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
+        found = conn.execute(
+            "SELECT id FROM treatment_events WHERE event_date = ? AND event_type = ? ORDER BY id LIMIT 1",
+            (event_date, event_type),
+        ).fetchone()
+        if found:
+            if description:
+                conn.execute("UPDATE treatment_events SET description = ? WHERE id = ?", (description, found[0]))
+            return int(found[0])
+        cursor = conn.execute(
+            "INSERT INTO treatment_events (event_date, event_type, description) VALUES (?, ?, ?)",
+            (event_date, event_type, description),
+        )
+        return int(cursor.lastrowid)
 
 
 def export_entries(path: str) -> None:
@@ -784,13 +929,13 @@ def export_entries(path: str) -> None:
         tags = phq.note_tag if phq and phq.note_tag else gad.note_tag if gad else ""
         record = {
             "Date": entry_date,
-            "PHQ-9 Total Score": phq.total if phq else "",
+            "PHQ-9 Daily Severity Score": phq.total if phq else "",
             "PHQ-9 Severity": phq.severity if phq else "",
         }
         for idx in range(1, 10):
             record[f"PHQ-9 Item {idx}"] = phq.items[idx - 1] if phq else ""
         record["Question 9 Score"] = phq.items[8] if phq else ""
-        record["GAD-7 Total Score"] = gad.total if gad else ""
+        record["GAD-7 Daily Severity Score"] = gad.total if gad else ""
         record["GAD-7 Severity"] = gad.severity if gad else ""
         for idx in range(1, 8):
             record[f"GAD-7 Item {idx}"] = gad.items[idx - 1] if gad else ""
@@ -799,18 +944,18 @@ def export_entries(path: str) -> None:
         record["Ketamine"] = "Yes" if "Ketamine" in event_types else "No"
         record["Therapy"] = "Yes" if "Therapy" in event_types else "No"
         record["Medication Change"] = "Yes" if any(event.startswith("Medication") for event in event_types) else "No"
-        record["Current PHQ-9 14-Day Symptom-Frequency Score"] = score_14_day.total_score
+        record["Current PHQ-9 14-Day Symptom Frequency Score"] = score_14_day.total_score
         record["Current PHQ-9 14-Day Severity"] = score_14_day.severity
-        record["Current GAD-7 14-Day Symptom-Frequency Score"] = gad_14_day.total_score
+        record["Current GAD-7 14-Day Symptom Frequency Score"] = gad_14_day.total_score
         record["Current GAD-7 14-Day Severity"] = gad_14_day.severity
         data.append(record)
     fieldnames = [
         "Date",
-        "PHQ-9 Total Score",
+        "PHQ-9 Daily Severity Score",
         "PHQ-9 Severity",
         *(f"PHQ-9 Item {i}" for i in range(1, 10)),
         "Question 9 Score",
-        "GAD-7 Total Score",
+        "GAD-7 Daily Severity Score",
         "GAD-7 Severity",
         *(f"GAD-7 Item {i}" for i in range(1, 8)),
         "Daily Notes",
@@ -818,9 +963,9 @@ def export_entries(path: str) -> None:
         "Ketamine",
         "Therapy",
         "Medication Change",
-        "Current PHQ-9 14-Day Symptom-Frequency Score",
+        "Current PHQ-9 14-Day Symptom Frequency Score",
         "Current PHQ-9 14-Day Severity",
-        "Current GAD-7 14-Day Symptom-Frequency Score",
+        "Current GAD-7 14-Day Symptom Frequency Score",
         "Current GAD-7 14-Day Severity",
     ]
     if path.lower().endswith(".xlsx"):
@@ -832,12 +977,12 @@ def export_entries(path: str) -> None:
                 {"Assessment": "PHQ-9", "Metric": "Window start", "Value": score_14_day.start_date},
                 {"Assessment": "PHQ-9", "Metric": "Window end", "Value": score_14_day.end_date},
                 {"Assessment": "PHQ-9", "Metric": "Entries included", "Value": score_14_day.entries_included},
-                {"Assessment": "PHQ-9", "Metric": "14-day symptom-frequency total score", "Value": score_14_day.total_score},
+                {"Assessment": "PHQ-9", "Metric": FREQUENCY_SCORE_LABEL, "Value": score_14_day.total_score},
                 {"Assessment": "PHQ-9", "Metric": "14-day severity", "Value": score_14_day.severity},
                 {"Assessment": "GAD-7", "Metric": "Window start", "Value": gad_14_day.start_date},
                 {"Assessment": "GAD-7", "Metric": "Window end", "Value": gad_14_day.end_date},
                 {"Assessment": "GAD-7", "Metric": "Entries included", "Value": gad_14_day.entries_included},
-                {"Assessment": "GAD-7", "Metric": "14-day symptom-frequency total score", "Value": gad_14_day.total_score},
+                {"Assessment": "GAD-7", "Metric": FREQUENCY_SCORE_LABEL, "Value": gad_14_day.total_score},
                 {"Assessment": "GAD-7", "Metric": "14-day severity", "Value": gad_14_day.severity},
                 {"Assessment": "Both", "Metric": "Missing-day handling", "Value": "Missing calendar days count as no recorded symptom-present day."},
             ]
@@ -847,12 +992,12 @@ def export_entries(path: str) -> None:
                     score_rows.append(
                         {
                             "Assessment": name,
-                            "Metric": f"Item {idx} 14-day score",
+                            "Metric": f"Item {idx} 14-Day Symptom Frequency Score",
                             "Value": item_score,
                             "Days present": score.item_counts[idx - 1],
                         }
                     )
-            pd.DataFrame(score_rows).to_excel(writer, index=False, sheet_name="14-Day Scores")
+            pd.DataFrame(score_rows).to_excel(writer, index=False, sheet_name="14-Day Frequency Scores")
     else:
         with open(path, "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -1294,12 +1439,12 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     with open(csv_path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["PHQ-9 Entries"])
-        writer.writerow(["Date", "Total", "Severity", *(f"Item {i}" for i in range(1, 10)), "Question 9", "Notes", "Tag"])
+        writer.writerow(["Date", DAILY_SCORE_LABEL, "Severity", *(f"Item {i}" for i in range(1, 10)), "Question 9", "Notes", "Tag"])
         for row in entries:
             writer.writerow([row.entry_date, row.total, row.severity, *row.items, row.items[8], row.notes, row.note_tag])
         writer.writerow([])
         writer.writerow(["GAD-7 Entries"])
-        writer.writerow(["Date", "Total", "Severity", *(f"Item {i}" for i in range(1, 8)), "Notes", "Tag"])
+        writer.writerow(["Date", DAILY_SCORE_LABEL, "Severity", *(f"Item {i}" for i in range(1, 8)), "Notes", "Tag"])
         for row in gad_entries:
             writer.writerow([row.entry_date, row.total, row.severity, *row.items, row.notes, row.note_tag])
         writer.writerow([])
@@ -1331,7 +1476,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
             ("GAD-7 total", [row.total for row in gad_entries[-90:]], "#0F766E"),
             ("14-entry average", moving_average([row.total for row in gad_entries[-90:]], min(14, max(1, len(gad_entries[-90:])))), "#2563EB"),
         ],
-        "GAD-7 Total Score Trend",
+        "GAD-7 Daily Severity Score Trend",
         21,
         events=events,
         show_severity=True,
@@ -1402,7 +1547,8 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         toc_link("Executive Summary", "executive_summary", styles["Normal"]),
         toc_link("Question 9 Monitoring", "q9", styles["Normal"]),
         toc_link("Clinical Summary / Current Status", "clinical_summary", styles["Normal"]),
-        toc_link("Recent 14-Day and 30-Day Score Summaries", "recent_scores", styles["Normal"]),
+        toc_link("How Scoring Works", "scoring", styles["Normal"]),
+        toc_link("Recent Scoring Summaries", "recent_scores", styles["Normal"]),
         toc_link("GAD-7 Anxiety Summary", "gad7_summary", styles["Normal"]),
         toc_link("Most Recent 14-Day Symptom Responses", "recent_symptoms", styles["Normal"]),
         toc_link("Item-Level Analysis", "item_analysis", styles["Normal"]),
@@ -1443,8 +1589,8 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     story.append(anchor_heading("Clinical Summary / Current Status", "clinical_summary", styles["Heading1"]))
     current_rows = [
         ["Date range", f"{start} to {end}", "Entries", str(len(entries))],
-        ["Most recent score", str(entries[-1].total), "Current severity", entries[-1].severity],
-        ["14-day score", str(score_14_day.total_score), "14-day severity", score_14_day.severity],
+        [f"Most recent {DAILY_SCORE_LABEL}", str(entries[-1].total), "Current severity", entries[-1].severity],
+        [FREQUENCY_SCORE_LABEL, str(score_14_day.total_score), "14-day severity", score_14_day.severity],
         ["Highest score", str(max(totals)), "Lowest score", str(min(totals))],
         ["Overall average", f"{sum(totals) / len(totals):.1f}", "30-day average", "n/a" if last_30_avg is None else f"{last_30_avg:.1f}"],
         ["Change vs prior 30 days", "n/a" if avg_30_change is None else f"{avg_30_change:+.1f}", "Therapy / Ketamine", f"{therapy_count} / {ketamine_count}"],
@@ -1453,16 +1599,33 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     if gad_entries:
         current_rows.extend(
             [
-                ["GAD-7 entries", str(len(gad_entries)), "Most recent GAD-7", f"{gad_entries[-1].total} ({gad_entries[-1].severity})"],
-                ["GAD-7 14-day score", str(gad_14_day.total_score), "GAD-7 14-day severity", gad_14_day.severity],
+                ["GAD-7 entries", str(len(gad_entries)), f"Most recent GAD-7 {DAILY_SCORE_LABEL}", f"{gad_entries[-1].total} ({gad_entries[-1].severity})"],
+                [f"GAD-7 {FREQUENCY_SCORE_LABEL}", str(gad_14_day.total_score), "GAD-7 14-day severity", gad_14_day.severity],
                 ["GAD-7 average", f"{sum(gad_totals) / len(gad_totals):.1f}", "GAD-7 30-day average", "n/a" if last_30_gad_avg is None else f"{last_30_gad_avg:.1f}"],
                 ["GAD-7 change vs prior 30 days", "n/a" if gad_avg_30_change is None else f"{gad_avg_30_change:+.1f}", "Most recent GAD-7 date", gad_entries[-1].entry_date],
             ]
         )
-    add_pdf_table(story, "Current Status", current_rows, col_widths=[1.7 * inch, 1.4 * inch, 1.7 * inch, 1.6 * inch])
+    add_pdf_table(
+        story,
+        "Current Status",
+        current_rows,
+        col_widths=[1.7 * inch, 1.4 * inch, 1.7 * inch, 1.6 * inch],
+        wrap_columns={0, 2, 3},
+    )
     story.append(PageBreak())
 
-    story.append(anchor_heading("Recent 14-Day and 30-Day Score Summaries", "recent_scores", styles["Heading1"]))
+    story.append(anchor_heading("How Scoring Works", "scoring", styles["Heading1"]))
+    for section in SCORING_EXPLANATION.split("\n\n"):
+        lines = section.splitlines()
+        if lines[0] in {"Daily Severity Score", "14-Day Symptom Frequency Score", "Important distinction", "Data coverage", "Mindful check-ins"}:
+            story.append(Paragraph(lines[0], styles["Heading2"]))
+            if len(lines) > 1:
+                story.append(Paragraph(" ".join(lines[1:]), styles["BodyText"]))
+        else:
+            story.append(Paragraph(" ".join(lines), styles["BodyText"]))
+    story.append(PageBreak())
+
+    story.append(anchor_heading("Recent Scoring Summaries", "recent_scores", styles["Heading1"]))
     score_rows = [
         ["Window", "Entries", "Score / average", "Severity", "Date range", "Note"],
         [
@@ -1482,7 +1645,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
             "Average of daily total scores.",
         ],
         [
-            "GAD-7 last 14 calendar days",
+            "GAD-7 14-day frequency",
             str(gad_14_day.entries_included),
             str(gad_14_day.total_score),
             gad_14_day.severity,
@@ -1498,12 +1661,12 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
             "Average of daily total scores.",
         ],
     ]
-    add_pdf_table(story, "Recent Score Summary", score_rows, col_widths=[1.35 * inch, 0.65 * inch, 1.0 * inch, 1.1 * inch, 1.35 * inch, 1.55 * inch], wrap_columns={5})
+    add_pdf_table(story, "Recent Scoring Summary", score_rows, col_widths=[1.55 * inch, 0.55 * inch, 0.85 * inch, 1.0 * inch, 1.45 * inch, 1.6 * inch], wrap_columns={0, 4, 5})
 
     story.append(anchor_heading("GAD-7 Anxiety Summary", "gad7_summary", styles["Heading1"]))
     if gad_entries:
-        add_chart(story, str(gad_chart), "GAD-7 Total Score Trend", width=6.7 * inch)
-        gad_item_rows = [["Item", "Average", "14-day score", "Days present", "Most recent"]]
+        add_chart(story, str(gad_chart), "GAD-7 Daily Severity Score Trend", width=6.7 * inch)
+        gad_item_rows = [["Item", "Daily\naverage", "14-day\nfrequency", "Days\npresent", "Most\nrecent"]]
         for idx, label in enumerate(GAD7_ITEM_LABELS, start=1):
             values = [row.items[idx - 1] for row in gad_entries]
             gad_item_rows.append(
@@ -1515,7 +1678,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
                     str(values[-1]),
                 ]
             )
-        add_pdf_table(story, "GAD-7 Item Summary", gad_item_rows, col_widths=[3.3 * inch, 1.0 * inch, 0.8 * inch, 0.85 * inch, 0.7 * inch], wrap_columns={0})
+        add_pdf_table(story, "GAD-7 Item Summary", gad_item_rows, col_widths=[3.05 * inch, 0.85 * inch, 0.95 * inch, 0.85 * inch, 0.75 * inch], wrap_columns={0, 1, 2, 3, 4})
         add_pdf_table(
             story,
             "Recent GAD-7 Responses",
@@ -1547,7 +1710,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     story.append(PageBreak())
 
     story.append(anchor_heading("Item-Level Analysis", "item_analysis", styles["Heading1"]))
-    item_rows = [["Item", "Lifetime average", "14-day score", "Days present", "Most recent"]]
+    item_rows = [["Item", "Daily\naverage", "14-day\nfrequency", "Days\npresent", "Most\nrecent"]]
     for idx, label in enumerate(ITEM_LABELS, start=1):
         values = [row.items[idx - 1] for row in entries]
         item_rows.append(
@@ -1559,7 +1722,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
                 str(values[-1]),
             ]
         )
-    add_pdf_table(story, "Item Summary Statistics", item_rows, col_widths=[3.3 * inch, 1.0 * inch, 0.8 * inch, 0.85 * inch, 0.7 * inch], wrap_columns={0})
+    add_pdf_table(story, "Item Summary Statistics", item_rows, col_widths=[3.05 * inch, 0.85 * inch, 0.95 * inch, 0.85 * inch, 0.75 * inch], wrap_columns={0, 1, 2, 3, 4})
     chart_entries = entries[-90:]
     for idx, label in enumerate(ITEM_LABELS, start=1):
         item_chart = chart_dir / f"item_{idx}.png"
@@ -1669,6 +1832,10 @@ class PHQ9App(Tk):
         self.geometry("1180x780")
         self.minsize(980, 680)
         self.configure(bg="#F8FAFC")
+        try:
+            self.iconbitmap(default=str(ICON_PATH))
+        except Exception:
+            pass
         init_db()
         self.create_menu()
         self.create_widgets()
@@ -1682,6 +1849,9 @@ class PHQ9App(Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.destroy)
         menu.add_cascade(label="File", menu=file_menu)
+        help_menu = Menu(menu, tearoff=0)
+        help_menu.add_command(label="How Scoring Works", command=self.show_scoring_help)
+        menu.add_cascade(label="Help", menu=help_menu)
         self.config(menu=menu)
 
     def create_widgets(self):
@@ -1702,14 +1872,20 @@ class PHQ9App(Tk):
         self.entry_tab = Frame(self.notebook, bg="#F8FAFC")
         self.report_tab = Frame(self.notebook, bg="#F8FAFC")
         self.events_tab = Frame(self.notebook, bg="#F8FAFC")
+        self.history_tab = Frame(self.notebook, bg="#F8FAFC")
+        self.scoring_tab = Frame(self.notebook, bg="#F8FAFC")
         self.notebook.add(self.dashboard, text="Dashboard")
         self.notebook.add(self.entry_tab, text="Today's Check-In")
+        self.notebook.add(self.history_tab, text="History / Manage Entries")
         self.notebook.add(self.events_tab, text="Treatment Events")
         self.notebook.add(self.report_tab, text="Clinician Report")
+        self.notebook.add(self.scoring_tab, text="How Scoring Works")
         self.build_dashboard()
         self.build_entry_tab()
+        self.build_history_tab()
         self.build_events_tab()
         self.build_report_tab()
+        self.build_scoring_tab()
 
     def build_dashboard(self):
         top = Frame(self.dashboard, bg="#F8FAFC")
@@ -1723,7 +1899,13 @@ class PHQ9App(Tk):
         cards = Frame(self.dashboard, bg="#F8FAFC")
         cards.pack(fill="x", pady=(0, 14))
         self.dashboard_cards = {}
-        for label in ["PHQ-9 Current", "GAD-7 Current", "PHQ-9 14-Day Trend", "GAD-7 14-Day Trend", "Most Recent Date"]:
+        for label in [
+            "PHQ-9 Daily Severity Score",
+            "GAD-7 Daily Severity Score",
+            "PHQ-9 14-Day Symptom Frequency Score",
+            "GAD-7 14-Day Symptom Frequency Score",
+            "Most Recent Date",
+        ]:
             card = Frame(cards, bg="#FFFFFF", padx=14, pady=10, highlightthickness=1, highlightbackground="#CBD5E1")
             card.pack(side=LEFT, fill="x", expand=True, padx=(0, 10))
             Label(card, text=label, bg="#FFFFFF", fg="#64748B", font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -1751,8 +1933,8 @@ class PHQ9App(Tk):
         self.recent_table.pack(fill=BOTH, expand=True, pady=(6, 0))
 
         Label(right, text="Assessment Item Averages", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 12, "bold")).pack(anchor="w")
-        self.item_table = ttk.Treeview(right, columns=["Assessment", "Item", "Average", "14-Day Score"], show="headings", height=14)
-        for col, width in [("Assessment", 90), ("Item", 310), ("Average", 90), ("14-Day Score", 130)]:
+        self.item_table = ttk.Treeview(right, columns=["Assessment", "Item", "Daily Average", "14-Day Symptom Frequency Score"], show="headings", height=14)
+        for col, width in [("Assessment", 90), ("Item", 310), ("Daily Average", 100), ("14-Day Symptom Frequency Score", 190)]:
             self.item_table.heading(col, text=col)
             self.item_table.column(col, width=width, anchor="w")
         self.item_table.pack(fill=BOTH, expand=True, pady=(6, 0))
@@ -1763,6 +1945,9 @@ class PHQ9App(Tk):
         Label(form, text="Date (YYYY-MM-DD)", bg="#F8FAFC").grid(row=0, column=0, sticky="w")
         self.date_var = StringVar(value=date.today().isoformat())
         Entry(form, textvariable=self.date_var, width=16).grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        Button(form, text="Check Date / Load Existing", command=self.load_checkin_date).grid(row=0, column=2, sticky="w", padx=8)
+        self.checkin_mode = Label(form, text="New daily entry", bg="#F8FAFC", fg="#047857", font=("Segoe UI", 10, "bold"))
+        self.checkin_mode.grid(row=0, column=3, sticky="w", padx=8)
 
         self.assessment_item_vars = {}
         assessment_area = Frame(form, bg="#F8FAFC")
@@ -1793,54 +1978,107 @@ class PHQ9App(Tk):
             width=20,
         ).grid(row=3, column=1, sticky="w", padx=8, pady=(4, 2))
 
-        self.include_event = IntVar(value=0)
-        Checkbutton(form, text="Add treatment event for this date", variable=self.include_event, bg="#F8FAFC").grid(row=4, column=1, sticky="w", padx=8, pady=(10, 2))
-        self.checkin_event_type = StringVar(value="Therapy")
-        ttk.Combobox(
+        events_box = LabelFrame(form, text="Treatment or health-related events (select all that apply)", bg="#F8FAFC", padx=8, pady=6)
+        events_box.grid(row=4, column=0, columnspan=4, sticky="we", pady=(10, 2))
+        self.checkin_event_vars = {}
+        for idx, event_type in enumerate(TREATMENT_EVENT_TYPES):
+            var = IntVar(value=0)
+            self.checkin_event_vars[event_type] = var
+            Checkbutton(events_box, text=event_type, variable=var, bg="#F8FAFC").grid(row=idx // 4, column=idx % 4, sticky="w", padx=6)
+        self.include_custom_event = IntVar(value=0)
+        Checkbutton(events_box, text="Add Custom Event", variable=self.include_custom_event, bg="#F8FAFC").grid(row=2, column=0, sticky="w", padx=6)
+        self.custom_event_type = StringVar(value="")
+        Entry(events_box, textvariable=self.custom_event_type, width=28).grid(row=2, column=1, sticky="w", padx=6)
+        Label(form, text="Event description (optional)", bg="#F8FAFC").grid(row=5, column=0, sticky="nw", pady=(6, 0))
+        self.checkin_event_desc = Text(form, height=2, width=72)
+        self.checkin_event_desc.grid(row=5, column=1, columnspan=3, sticky="we", padx=8, pady=(6, 0))
+        Button(form, text="Save New Entry / Update Existing Entry", command=self.save_entry).grid(row=6, column=1, sticky="w", padx=8, pady=10)
+        Button(form, text="Open History to Add Another Treatment Event", command=lambda: self.open_history_for_date(self.date_var.get())).grid(row=6, column=2, sticky="w", padx=8, pady=10)
+        Label(
             form,
-            textvariable=self.checkin_event_type,
-            values=[
-                "Ketamine",
-                "Therapy",
-                "Medication Start",
-                "Medication Stop",
-                "Medication Dose Increase",
-                "Medication Dose Decrease",
-                "Other treatment event",
-            ],
-            width=30,
-        ).grid(row=5, column=1, sticky="w", padx=8)
-        self.checkin_event_desc = Text(form, height=3, width=72)
-        self.checkin_event_desc.grid(row=5, column=2, columnspan=2, sticky="we", padx=8)
-        Button(form, text="Save Today's Check-In", command=self.save_entry).grid(row=6, column=1, sticky="w", padx=8, pady=12)
+            text="Mindful check-ins intentionally require each symptom to be considered individually; previous responses are never copied or autofilled.",
+            bg="#F8FAFC",
+            fg="#475569",
+            wraplength=900,
+            justify=LEFT,
+        ).grid(row=7, column=0, columnspan=4, sticky="w", pady=(2, 4))
         form.columnconfigure(3, weight=1)
+
+    def build_history_tab(self):
+        top = Frame(self.history_tab, bg="#F8FAFC")
+        top.pack(fill="x", padx=6, pady=6)
+        Label(top, text="Manage records for date (YYYY-MM-DD)", bg="#F8FAFC").pack(side=LEFT)
+        self.history_date = StringVar(value=date.today().isoformat())
+        Entry(top, textvariable=self.history_date, width=16).pack(side=LEFT, padx=8)
+        Button(top, text="Load Date", command=self.load_history_date).pack(side=LEFT)
+        self.history_status = Label(top, text="", bg="#F8FAFC", fg="#334155")
+        self.history_status.pack(side=LEFT, padx=12)
+
+        self.history_assessment_vars = {}
+        self.history_assessment_ids = {}
+        assessments_frame = Frame(self.history_tab, bg="#F8FAFC")
+        assessments_frame.pack(fill="x", padx=6, pady=4)
+        for col_idx, assessment_id in enumerate(ASSESSMENT_ORDER):
+            definition = ASSESSMENTS[assessment_id]
+            box = LabelFrame(assessments_frame, text=f"{definition.display_name} responses", bg="#F8FAFC", padx=8, pady=8)
+            box.grid(row=0, column=col_idx, sticky="nsew", padx=(0, 8))
+            self.history_assessment_vars[assessment_id] = []
+            for idx in range(definition.item_count):
+                Label(box, text=f"{idx + 1}", bg="#F8FAFC").grid(row=0, column=idx, padx=2)
+                var = IntVar(value=0)
+                self.history_assessment_vars[assessment_id].append(var)
+                ttk.Spinbox(box, from_=0, to=3, textvariable=var, width=3).grid(row=1, column=idx, padx=2)
+            Button(box, text="Update Existing Entry", command=lambda aid=assessment_id: self.save_history_assessment(aid)).grid(row=2, column=0, columnspan=4, sticky="w", pady=(8, 0))
+            Button(box, text="Delete Assessment", command=lambda aid=assessment_id: self.delete_history_assessment(aid)).grid(row=2, column=4, columnspan=5, sticky="e", pady=(8, 0))
+            assessments_frame.columnconfigure(col_idx, weight=1)
+
+        notes_box = LabelFrame(self.history_tab, text="Daily note", bg="#F8FAFC", padx=8, pady=8)
+        notes_box.pack(fill="x", padx=6, pady=4)
+        self.history_notes = Text(notes_box, height=3, width=80)
+        self.history_notes.grid(row=0, column=0, columnspan=3, sticky="we")
+        self.history_note_tag = StringVar(value="")
+        ttk.Combobox(notes_box, textvariable=self.history_note_tag, values=["", "Finances", "Work", "Family", "Health", "Sleep", "Relationships", "Other"], state="readonly", width=20).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        Button(notes_box, text="Update Existing Note", command=self.save_history_note).grid(row=1, column=1, padx=8, pady=(6, 0))
+        Button(notes_box, text="Delete Note", command=self.delete_history_note).grid(row=1, column=2, pady=(6, 0))
+        notes_box.columnconfigure(0, weight=1)
+
+        event_box = LabelFrame(self.history_tab, text="Treatment events", bg="#F8FAFC", padx=8, pady=8)
+        event_box.pack(fill=BOTH, expand=True, padx=6, pady=4)
+        self.history_events_table = ttk.Treeview(event_box, columns=["Type", "Description"], show="headings", height=6)
+        self.history_events_table.heading("Type", text="Type")
+        self.history_events_table.heading("Description", text="Description")
+        self.history_events_table.column("Type", width=220)
+        self.history_events_table.column("Description", width=650)
+        self.history_events_table.grid(row=0, column=0, columnspan=4, sticky="nsew")
+        self.history_events_table.bind("<<TreeviewSelect>>", self.select_history_event)
+        self.history_event_type = StringVar(value="Therapy")
+        ttk.Combobox(event_box, textvariable=self.history_event_type, values=[*TREATMENT_EVENT_TYPES, "Custom event"], width=28).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self.history_event_desc = StringVar(value="")
+        Entry(event_box, textvariable=self.history_event_desc, width=65).grid(row=1, column=1, sticky="we", padx=6, pady=(6, 0))
+        Button(event_box, text="Add Another Treatment Event", command=self.add_history_event).grid(row=1, column=2, padx=4, pady=(6, 0))
+        Button(event_box, text="Update Selected", command=self.update_history_event).grid(row=2, column=2, padx=4, pady=(6, 0))
+        Button(event_box, text="Delete Selected", command=self.delete_history_event).grid(row=2, column=3, padx=4, pady=(6, 0))
+        event_box.columnconfigure(1, weight=1)
+        event_box.rowconfigure(0, weight=1)
 
     def build_events_tab(self):
         form = LabelFrame(self.events_tab, text="Medication/Treatment Event Marker", bg="#F8FAFC", padx=12, pady=12)
         form.pack(fill="x", padx=4, pady=4)
         self.event_date = StringVar(value=date.today().isoformat())
-        self.event_type = StringVar(value="Ketamine")
+        self.event_type = StringVar(value="Ketamine infusion")
         Label(form, text="Date (YYYY-MM-DD)", bg="#F8FAFC").grid(row=0, column=0, sticky="w")
         Entry(form, textvariable=self.event_date, width=16).grid(row=0, column=1, sticky="w", padx=8)
         Label(form, text="Type", bg="#F8FAFC").grid(row=0, column=2, sticky="w", padx=(18, 0))
         ttk.Combobox(
             form,
             textvariable=self.event_type,
-            values=[
-                "Ketamine",
-                "Therapy",
-                "Medication Start",
-                "Medication Stop",
-                "Medication Dose Increase",
-                "Medication Dose Decrease",
-                "Other treatment event",
-            ],
+            values=[*TREATMENT_EVENT_TYPES, "Custom event"],
             width=30,
         ).grid(row=0, column=3, sticky="w", padx=8)
         Label(form, text="Description", bg="#F8FAFC").grid(row=1, column=0, sticky="nw", pady=(8, 0))
         self.event_desc = Text(form, height=4, width=80)
         self.event_desc.grid(row=1, column=1, columnspan=3, sticky="we", padx=8, pady=(8, 0))
-        Button(form, text="Add Event", command=self.save_event).grid(row=2, column=1, sticky="w", padx=8, pady=10)
+        Button(form, text="Add Another Treatment Event", command=self.save_event).grid(row=2, column=1, sticky="w", padx=8, pady=10)
 
         self.events_table = ttk.Treeview(self.events_tab, columns=["Date", "Type", "Description"], show="headings", height=16)
         for col, width in [("Date", 120), ("Type", 180), ("Description", 620)]:
@@ -1875,6 +2113,150 @@ class PHQ9App(Tk):
         self.report_status = Label(self.report_tab, text="", bg="#F8FAFC", fg="#172033", justify=LEFT)
         self.report_status.pack(anchor="w", padx=8)
 
+    def build_scoring_tab(self):
+        Label(self.scoring_tab, text="How Scoring Works", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=12, pady=(12, 6))
+        explanation = Text(self.scoring_tab, wrap="word", bg="#FFFFFF", fg="#172033", font=("Segoe UI", 10), padx=12, pady=12)
+        explanation.insert("1.0", SCORING_EXPLANATION)
+        explanation.config(state="disabled")
+        explanation.pack(fill=BOTH, expand=True, padx=12, pady=(0, 12))
+
+    def show_scoring_help(self):
+        self.notebook.select(self.scoring_tab)
+
+    def load_checkin_date(self):
+        entry_date = parse_date(self.date_var.get())
+        if not entry_date:
+            messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
+            return
+        day_data = fetch_day_data(entry_date)
+        assessments = day_data["assessments"]
+        has_data = bool(assessments or day_data["notes"] or day_data["events"])
+        for assessment_id in ASSESSMENT_ORDER:
+            row = assessments.get(assessment_id)
+            for idx, var in enumerate(self.assessment_item_vars[assessment_id]):
+                var.set(row.items[idx] if row else 0)
+        self.notes_box.delete("1.0", END)
+        self.notes_box.insert("1.0", day_data["notes"])
+        self.note_tag.set(day_data["note_tag"])
+        existing_types = {event[2] for event in day_data["events"]}
+        for event_type, var in self.checkin_event_vars.items():
+            var.set(1 if event_type in existing_types else 0)
+        custom_events = [event for event in day_data["events"] if event[2] not in TREATMENT_EVENT_TYPES]
+        self.include_custom_event.set(1 if custom_events else 0)
+        self.custom_event_type.set(custom_events[0][2] if custom_events else "")
+        self.checkin_event_desc.delete("1.0", END)
+        self.checkin_mode.config(
+            text="Update Existing Entry" if has_data else "New daily entry",
+            fg="#B45309" if has_data else "#047857",
+        )
+
+    def open_history_for_date(self, raw_date: str):
+        entry_date = parse_date(raw_date)
+        if entry_date:
+            self.history_date.set(entry_date)
+        self.notebook.select(self.history_tab)
+        self.load_history_date()
+
+    def load_history_date(self):
+        entry_date = parse_date(self.history_date.get())
+        if not entry_date:
+            messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
+            return
+        day_data = fetch_day_data(entry_date)
+        assessments = day_data["assessments"]
+        for assessment_id in ASSESSMENT_ORDER:
+            row = assessments.get(assessment_id)
+            self.history_assessment_ids[assessment_id] = row.id if row else None
+            for idx, var in enumerate(self.history_assessment_vars[assessment_id]):
+                var.set(row.items[idx] if row else 0)
+        self.history_notes.delete("1.0", END)
+        self.history_notes.insert("1.0", day_data["notes"])
+        self.history_note_tag.set(day_data["note_tag"])
+        for item in self.history_events_table.get_children():
+            self.history_events_table.delete(item)
+        for event_id, _event_date, event_type, description in day_data["events"]:
+            self.history_events_table.insert("", END, iid=str(event_id), values=[event_type, description])
+        record_count = len(assessments) + len(day_data["events"]) + bool(day_data["notes"] or day_data["note_tag"])
+        self.history_status.config(text=f"Loaded {record_count} record(s) for {entry_date}.")
+
+    def save_history_assessment(self, assessment_id: str):
+        entry_id = self.history_assessment_ids.get(assessment_id)
+        if not entry_id:
+            messagebox.showinfo("No existing assessment", "Use Today's Check-In to create a new assessment for this date.")
+            return
+        items = [int(var.get()) for var in self.history_assessment_vars[assessment_id]]
+        try:
+            update_assessment_entry(entry_id, assessment_id, items)
+            self.refresh_all()
+            self.load_history_date()
+            messagebox.showinfo("Updated", f"Updated the existing {ASSESSMENTS[assessment_id].display_name} assessment without changing its record ID.")
+        except Exception as exc:
+            messagebox.showerror("Update failed", str(exc))
+
+    def delete_history_assessment(self, assessment_id: str):
+        entry_id = self.history_assessment_ids.get(assessment_id)
+        if not entry_id:
+            return
+        name = ASSESSMENTS[assessment_id].display_name
+        if not messagebox.askyesno("Confirm deletion", f"Permanently delete the {name} assessment for {self.history_date.get()}?"):
+            return
+        delete_assessment_entry(entry_id, assessment_id)
+        self.refresh_all()
+        self.load_history_date()
+
+    def save_history_note(self):
+        entry_date = parse_date(self.history_date.get())
+        if not entry_date:
+            return
+        update_daily_note(entry_date, self.history_notes.get("1.0", END).strip(), self.history_note_tag.get().strip())
+        self.refresh_all()
+        self.load_history_date()
+        messagebox.showinfo("Updated", "Updated the existing daily note without creating another record.")
+
+    def delete_history_note(self):
+        entry_date = parse_date(self.history_date.get())
+        if not entry_date or not messagebox.askyesno("Confirm deletion", f"Permanently delete the daily note for {entry_date}?"):
+            return
+        delete_daily_note(entry_date)
+        self.refresh_all()
+        self.load_history_date()
+
+    def select_history_event(self, _event=None):
+        selected = self.history_events_table.selection()
+        if not selected:
+            return
+        values = self.history_events_table.item(selected[0], "values")
+        self.history_event_type.set(values[0])
+        self.history_event_desc.set(values[1])
+
+    def add_history_event(self):
+        entry_date = parse_date(self.history_date.get())
+        event_type = self.history_event_type.get().strip()
+        if not entry_date or not event_type:
+            messagebox.showerror("Missing information", "Enter a valid date and event type.")
+            return
+        add_event(entry_date, event_type, self.history_event_desc.get().strip(), dedupe=False)
+        self.refresh_all()
+        self.load_history_date()
+
+    def update_history_event(self):
+        selected = self.history_events_table.selection()
+        entry_date = parse_date(self.history_date.get())
+        if not selected or not entry_date:
+            messagebox.showinfo("Select an event", "Select the treatment event to update.")
+            return
+        update_event(int(selected[0]), entry_date, self.history_event_type.get().strip() or "Treatment event", self.history_event_desc.get().strip())
+        self.refresh_all()
+        self.load_history_date()
+
+    def delete_history_event(self):
+        selected = self.history_events_table.selection()
+        if not selected or not messagebox.askyesno("Confirm deletion", "Permanently delete the selected treatment event?"):
+            return
+        delete_event(int(selected[0]))
+        self.refresh_all()
+        self.load_history_date()
+
     def refresh_all(self):
         self.refresh_recent_table()
         self.refresh_item_table()
@@ -1886,16 +2268,16 @@ class PHQ9App(Tk):
             latest_date = all_dates[-1]
             phq_comparison = compare_recent_14_day_periods(phq_entries, "phq9", latest_date)
             gad_comparison = compare_recent_14_day_periods(gad_entries, "gad7", latest_date)
-            self.dashboard_cards["PHQ-9 Current"].config(text=f"{phq_entries[-1].total} ({phq_entries[-1].severity})" if phq_entries else "--")
-            self.dashboard_cards["GAD-7 Current"].config(text=f"{gad_entries[-1].total} ({gad_entries[-1].severity})" if gad_entries else "--")
-            self.dashboard_cards["PHQ-9 14-Day Trend"].config(
+            self.dashboard_cards["PHQ-9 Daily Severity Score"].config(text=f"{phq_entries[-1].total} ({phq_entries[-1].severity})" if phq_entries else "--")
+            self.dashboard_cards["GAD-7 Daily Severity Score"].config(text=f"{gad_entries[-1].total} ({gad_entries[-1].severity})" if gad_entries else "--")
+            self.dashboard_cards["PHQ-9 14-Day Symptom Frequency Score"].config(
                 text=(
                     f"{phq_comparison.current.total_score} - {comparison_trend_text(phq_comparison, include_arrow=True)}"
                     if phq_entries
                     else "--"
                 )
             )
-            self.dashboard_cards["GAD-7 14-Day Trend"].config(
+            self.dashboard_cards["GAD-7 14-Day Symptom Frequency Score"].config(
                 text=(
                     f"{gad_comparison.current.total_score} - {comparison_trend_text(gad_comparison, include_arrow=True)}"
                     if gad_entries
@@ -1973,8 +2355,8 @@ class PHQ9App(Tk):
     def refresh_events(self):
         for row in self.events_table.get_children():
             self.events_table.delete(row)
-        for _, event_date, event_type, desc in fetch_events():
-            self.events_table.insert("", END, values=[event_date, event_type, desc])
+        for event_id, event_date, event_type, desc in fetch_events():
+            self.events_table.insert("", END, iid=str(event_id), values=[event_date, event_type, desc])
 
     def draw_charts(self):
         return
@@ -2022,6 +2404,11 @@ class PHQ9App(Tk):
             return
         notes = self.notes_box.get("1.0", END).strip()
         tag = self.note_tag.get().strip()
+        custom_type = self.custom_event_type.get().strip()
+        if self.include_custom_event.get() and not custom_type:
+            messagebox.showerror("Missing custom event", "Enter a name for the custom event.")
+            return
+        existing = fetch_day_data(entry_date)
         saved = []
         for assessment_id in ASSESSMENT_ORDER:
             definition = ASSESSMENTS[assessment_id]
@@ -2034,22 +2421,25 @@ class PHQ9App(Tk):
             else:
                 upsert_assessment_entry(assessment_id, entry_date, items, notes=notes, source="manual", note_tag=tag)
             saved.append(definition.display_name)
-        if self.include_event.get():
-            add_event(
-                entry_date,
-                self.checkin_event_type.get().strip() or "Treatment event",
-                self.checkin_event_desc.get("1.0", END).strip(),
-            )
-            self.checkin_event_desc.delete("1.0", END)
+        update_daily_note(entry_date, notes, tag)
+        description = self.checkin_event_desc.get("1.0", END).strip()
+        for event_type, var in self.checkin_event_vars.items():
+            if var.get():
+                upsert_daily_event(entry_date, event_type, description)
+        if self.include_custom_event.get():
+            upsert_daily_event(entry_date, custom_type, description)
+        self.checkin_event_desc.delete("1.0", END)
         self.refresh_all()
-        messagebox.showinfo("Saved", f"Saved {', '.join(saved)} check-in for {entry_date}.")
+        self.load_checkin_date()
+        action = "Updated existing" if existing["assessments"] or existing["notes"] or existing["events"] else "Saved new"
+        messagebox.showinfo("Saved", f"{action} {', '.join(saved)} check-in for {entry_date}.")
 
     def save_event(self):
         event_date = parse_date(self.event_date.get())
         if not event_date:
             messagebox.showerror("Invalid date", "Enter the event date as YYYY-MM-DD.")
             return
-        add_event(event_date, self.event_type.get().strip() or "Treatment event", self.event_desc.get("1.0", END).strip())
+        add_event(event_date, self.event_type.get().strip() or "Treatment event", self.event_desc.get("1.0", END).strip(), dedupe=False)
         self.event_desc.delete("1.0", END)
         self.refresh_events()
         messagebox.showinfo("Saved", f"Saved event for {event_date}.")

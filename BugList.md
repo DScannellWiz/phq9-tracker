@@ -89,7 +89,7 @@ Low
 
 BUG: Duplicate notes and treatment events when updating an existing daily check-in
 
-Status: Open
+Status: Fixed in Iteration 006
 
 Priority: High
 
@@ -121,3 +121,13 @@ Implementation considerations:
 - Preserve stable record IDs when updating existing records.
 - Distinguish between “Update existing entry” and “Add another event.”
 - Add automated tests covering repeated submissions, edits, deletions, and multiple valid treatment events on one date.
+
+Resolution:
+
+- Today's Check-In detects and loads existing dates and uses assessment upserts plus synchronized day-level note updates.
+- Daily event selections update the first matching date/type record rather than appending another copy.
+- History / Manage Entries preserves stable assessment and event IDs during edits and requires confirmation before deletion.
+- The explicit Add Another Treatment Event action can intentionally create a second legitimate event, including another event of the same type.
+- Automated duplicate-prevention, editing, deletion, migration, and multiple-event tests passed with synthetic data.
+- Manual GUI validation completed successfully with the existing production database: prior entries loaded, edits persisted after restart, repeated saves created no duplicates, multiple same-day treatment events were retained, and confirmed deletion behaved as intended.
+- Installed and portable distribution validation remains pending because PyInstaller and Inno Setup were unavailable; this packaging limitation does not affect the source-run duplicate-entry fix.

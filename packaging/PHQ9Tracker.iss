@@ -21,15 +21,15 @@ SetupIconFile=assets\PHQ9_Tracker.ico
 PrivilegesRequired=lowest
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
 
 [Files]
 Source: "..\dist\PHQ9Tracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Mental Health Tracker"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\Mental Health Tracker"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{group}\Uninstall Mental Health Tracker"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Mental Health Tracker"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\Mental Health Tracker"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Mental Health Tracker"; Flags: nowait postinstall skipifsilent

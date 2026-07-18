@@ -28,6 +28,8 @@ Build professional-quality, privacy-first software while learning software engin
 
 5\. Improve packaging and releases.
 
+6\. Preserve stable record IDs when editing historical data and make destructive actions explicit and confirmed.
+
 
 
 \---
@@ -83,6 +85,14 @@ Security should be optional but easy to enable.
 \* Explain architectural decisions.
 
 \* Never commit private user data.
+
+\* Treat daily notes as one synchronized day-level value even while legacy assessment tables remain compatible.
+
+\* Make repeated daily submission idempotent; use an explicit action for another legitimate treatment event.
+
+\* Use the user-facing labels Daily Severity Score and 14-Day Symptom Frequency Score without renaming stable internal database fields unnecessarily.
+
+\* Do not copy or autofill prior symptom responses; mindful reflection is an intentional data-quality feature.
 
 
 

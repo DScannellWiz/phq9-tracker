@@ -40,6 +40,8 @@ This creates:
 
 The portable launcher sets `PHQ9_TRACKER_PORTABLE=1`, which keeps `phq9_tracker.sqlite` inside the portable folder.
 
+Portable builds retain the executable icon and create no system shortcuts. The launcher is named `Launch Portable Mental Health Tracker.bat`.
+
 ## Application Icon
 
 The build uses the existing icon asset:
@@ -58,7 +60,7 @@ Install Inno Setup, then compile:
 iscc .\packaging\PHQ9Tracker.iss
 ```
 
-The installer deploys the folder-based app under Program Files, creates Start Menu shortcuts under **Mental Health Tracker**, optionally creates a desktop shortcut, and registers an uninstaller in Windows Apps & Features.
+The installer deploys the folder-based app under Program Files, creates a Start Menu shortcut under **Mental Health Tracker**, selects desktop-shortcut creation by default, and registers an uninstaller in Windows Apps & Features. Both shortcuts explicitly use the executable's embedded Mental Health Tracker icon.
 
 Installed builds store user data in:
 
@@ -73,6 +75,8 @@ This preserves user data during upgrades because installer file replacement does
 Iteration 004 keeps the legacy `phq9_entries` table and adds `assessment_entries`.
 
 On startup, existing PHQ-9 rows are copied into `assessment_entries` using `INSERT OR IGNORE`. GAD-7 entries are stored only in `assessment_entries`. This keeps older PHQ-9 behavior intact while giving future assessments a reusable storage path.
+
+Iteration 006 requires no schema migration. It adds stable-ID update/delete operations over the existing tables, keeps legacy PHQ-9 rows synchronized, and prevents deleted PHQ-9 assessments from being recreated by the startup migration.
 
 ## Size Reduction
 
@@ -101,3 +105,12 @@ Update these together for each release:
 - Export CSV and Excel data-only spreadsheets.
 - Confirm installed app data remains under LocalAppData after reinstall/upgrade.
 - Confirm no real databases, reports, exports, logs, screenshots, PHI, or PII are staged for Git.
+- Confirm the running window and taskbar representation use `packaging\assets\PHQ9_Tracker.ico` where Windows supports it.
+- Confirm Start Menu and default desktop shortcuts launch `PHQ9Tracker.exe` and display its icon.
+- Confirm portable builds create no system shortcuts.
+
+## Current Validation Status
+
+Iteration 006 passed the full automated test suite and manual source-GUI validation with the existing production database. Historical editing, persistence after restart, duplicate-safe resubmission, multiple same-day treatment events, and confirmed deletion were verified without recording private health details in project documentation.
+
+Installed and portable distributions still require final validation on a Windows release workstation with PyInstaller and Inno Setup installed. Until those checks are complete, shortcut creation, installed launch behavior, and final Windows icon presentation remain packaging limitations rather than confirmed release behavior.
