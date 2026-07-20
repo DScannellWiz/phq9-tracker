@@ -73,6 +73,10 @@ Goals:
 - Refine interface layout and visual hierarchy without adding unrelated features.
 - Reorganize the clinician report so interpretation guidance and high-value clinical content appear earlier.
 - Move the scoring explanation near the beginning of the clinician report, ideally immediately after the title or within an early How to Read This Report section.
+- Add a normalized, analysis-ready workbook export alongside the existing human-readable spreadsheet. The current presentation-oriented layout distributes data across different areas and is not suitable for independent filtering, sorting, pivoting, or external analysis.
+- Organize the analysis-ready workbook into separate tabular worksheets or equivalent normalized datasets for daily assessments, item-level responses, notes, treatment events, and metadata.
+- Use one row per logical record, stable identifiers, ISO-formatted dates, explicit assessment-type and item fields, and consistent column names. Do not use merged cells, decorative blank rows, or calculated report-only presentation that obscures the underlying raw data.
+- Preserve enough documented relationships between worksheets for users and clinicians to perform their own analysis outside the application and generated clinician report.
 - Keep all current scoring, database, report, and export behavior intact.
 - Do not perform major data model changes.
 - Preserve support for multiple legitimate treatment events on the same date through an explicit “Add another event” action.
