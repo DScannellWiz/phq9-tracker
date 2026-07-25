@@ -65,6 +65,12 @@ Delivered:
 Iteration 007: User Experience Refresh
 
 Goals:
+- Start with a present-focused Today flow as the Iteration 007 direction check before expanding dashboard, Personal Review, or clinician-report work.
+- Open directly to today's entry, keep prior scores and charts out of that experience, and retain mindful reflection on each assessment item.
+- Save the core assessment before offering one gentle, optional prompt for a treatment event, appointment, or personal note.
+- Use quick common treatment-event choices, plus Other and an optional note, while preserving multiple legitimate events on the same date.
+- Handle missed days without pressure: focus on today and retain optional backfill through existing date-based tools.
+- Keep dashboard cards, charts, and comparison views in a separate Review experience after the Today-flow checkpoint is validated.
 - Move toward the card-based dashboard mockup.
 - Separate PHQ-9 and GAD-7 item summaries into distinct sections.
 - Make Today’s Check-In the central workflow.

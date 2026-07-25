@@ -1886,6 +1886,7 @@ class PHQ9App(Tk):
         self.build_events_tab()
         self.build_report_tab()
         self.build_scoring_tab()
+        self.notebook.select(self.entry_tab)
 
     def build_dashboard(self):
         top = Frame(self.dashboard, bg="#F8FAFC")
@@ -1965,21 +1966,46 @@ class PHQ9App(Tk):
         assessment_area.columnconfigure(0, weight=1)
         assessment_area.columnconfigure(1, weight=1)
 
-        Label(form, text="Daily notes (optional)", bg="#F8FAFC").grid(row=2, column=0, sticky="nw", pady=(8, 2))
-        self.notes_box = Text(form, height=5, width=72)
-        self.notes_box.grid(row=2, column=1, columnspan=3, sticky="we", padx=8, pady=(8, 2))
-        Label(form, text="Optional note tag", bg="#F8FAFC").grid(row=3, column=0, sticky="w", pady=(4, 2))
+        Button(form, text="Save Today's Check-In", command=self.save_entry).grid(row=2, column=1, sticky="w", padx=8, pady=(10, 8))
+        Label(
+            form,
+            text="Mindful check-ins intentionally require each symptom to be considered individually; previous responses are never copied or autofilled.",
+            bg="#F8FAFC",
+            fg="#475569",
+            wraplength=900,
+            justify=LEFT,
+        ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(2, 8))
+
+        self.checkin_details = LabelFrame(
+            form,
+            text="Anything else to record about today?",
+            bg="#F8FAFC",
+            padx=10,
+            pady=10,
+        )
+        self.checkin_details.grid(row=4, column=0, columnspan=4, sticky="we", pady=(4, 2))
+        Label(
+            self.checkin_details,
+            text="These details are optional. Your core check-in has already been recorded.",
+            bg="#F8FAFC",
+            fg="#475569",
+        ).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 6))
+
+        Label(self.checkin_details, text="Personal note (optional)", bg="#F8FAFC").grid(row=1, column=0, sticky="nw", pady=(4, 2))
+        self.notes_box = Text(self.checkin_details, height=4, width=72)
+        self.notes_box.grid(row=1, column=1, columnspan=3, sticky="we", padx=8, pady=(4, 2))
+        Label(self.checkin_details, text="Optional note tag", bg="#F8FAFC").grid(row=2, column=0, sticky="w", pady=(4, 2))
         self.note_tag = StringVar(value="")
         ttk.Combobox(
-            form,
+            self.checkin_details,
             textvariable=self.note_tag,
             values=["", "Finances", "Work", "Family", "Health", "Sleep", "Relationships", "Other"],
             state="readonly",
             width=20,
-        ).grid(row=3, column=1, sticky="w", padx=8, pady=(4, 2))
+        ).grid(row=2, column=1, sticky="w", padx=8, pady=(4, 2))
 
-        events_box = LabelFrame(form, text="Treatment or health-related events (select all that apply)", bg="#F8FAFC", padx=8, pady=6)
-        events_box.grid(row=4, column=0, columnspan=4, sticky="we", pady=(10, 2))
+        events_box = LabelFrame(self.checkin_details, text="Treatment or health-related events", bg="#F8FAFC", padx=8, pady=6)
+        events_box.grid(row=3, column=0, columnspan=4, sticky="we", pady=(10, 2))
         self.checkin_event_vars = {}
         for idx, event_type in enumerate(TREATMENT_EVENT_TYPES):
             var = IntVar(value=0)
@@ -1989,19 +2015,14 @@ class PHQ9App(Tk):
         Checkbutton(events_box, text="Add Custom Event", variable=self.include_custom_event, bg="#F8FAFC").grid(row=2, column=0, sticky="w", padx=6)
         self.custom_event_type = StringVar(value="")
         Entry(events_box, textvariable=self.custom_event_type, width=28).grid(row=2, column=1, sticky="w", padx=6)
-        Label(form, text="Event description (optional)", bg="#F8FAFC").grid(row=5, column=0, sticky="nw", pady=(6, 0))
-        self.checkin_event_desc = Text(form, height=2, width=72)
-        self.checkin_event_desc.grid(row=5, column=1, columnspan=3, sticky="we", padx=8, pady=(6, 0))
-        Button(form, text="Save New Entry / Update Existing Entry", command=self.save_entry).grid(row=6, column=1, sticky="w", padx=8, pady=10)
-        Button(form, text="Open History to Add Another Treatment Event", command=lambda: self.open_history_for_date(self.date_var.get())).grid(row=6, column=2, sticky="w", padx=8, pady=10)
-        Label(
-            form,
-            text="Mindful check-ins intentionally require each symptom to be considered individually; previous responses are never copied or autofilled.",
-            bg="#F8FAFC",
-            fg="#475569",
-            wraplength=900,
-            justify=LEFT,
-        ).grid(row=7, column=0, columnspan=4, sticky="w", pady=(2, 4))
+        Label(self.checkin_details, text="Event description (optional)", bg="#F8FAFC").grid(row=4, column=0, sticky="nw", pady=(6, 0))
+        self.checkin_event_desc = Text(self.checkin_details, height=2, width=72)
+        self.checkin_event_desc.grid(row=4, column=1, columnspan=3, sticky="we", padx=8, pady=(6, 0))
+        Button(self.checkin_details, text="Save Optional Details", command=self.save_optional_details).grid(row=5, column=1, sticky="w", padx=8, pady=10)
+        Button(self.checkin_details, text="Not Right Now", command=self.hide_checkin_details).grid(row=5, column=2, sticky="w", padx=8, pady=10)
+        Button(self.checkin_details, text="Add Another Treatment Event", command=lambda: self.open_history_for_date(self.date_var.get())).grid(row=5, column=3, sticky="e", padx=8, pady=10)
+        self.checkin_details.columnconfigure(3, weight=1)
+        self.checkin_details.grid_remove()
         form.columnconfigure(3, weight=1)
 
     def build_history_tab(self):
@@ -2122,6 +2143,13 @@ class PHQ9App(Tk):
 
     def show_scoring_help(self):
         self.notebook.select(self.scoring_tab)
+
+    def show_checkin_details(self):
+        self.checkin_details.grid()
+
+    def hide_checkin_details(self):
+        self.checkin_details.grid_remove()
+        messagebox.showinfo("Today's Check-In", "Today's check-in is recorded.")
 
     def load_checkin_date(self):
         entry_date = parse_date(self.date_var.get())
@@ -2402,12 +2430,6 @@ class PHQ9App(Tk):
         if not entry_date:
             messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
             return
-        notes = self.notes_box.get("1.0", END).strip()
-        tag = self.note_tag.get().strip()
-        custom_type = self.custom_event_type.get().strip()
-        if self.include_custom_event.get() and not custom_type:
-            messagebox.showerror("Missing custom event", "Enter a name for the custom event.")
-            return
         existing = fetch_day_data(entry_date)
         saved = []
         for assessment_id in ASSESSMENT_ORDER:
@@ -2417,10 +2439,27 @@ class PHQ9App(Tk):
                 messagebox.showerror("Invalid score", f"Each {definition.display_name} item must be 0, 1, 2, or 3.")
                 return
             if assessment_id == "phq9":
-                upsert_entry(entry_date, items, notes=notes, source="manual", note_tag=tag)
+                upsert_entry(entry_date, items, source="manual")
             else:
-                upsert_assessment_entry(assessment_id, entry_date, items, notes=notes, source="manual", note_tag=tag)
+                upsert_assessment_entry(assessment_id, entry_date, items, source="manual")
             saved.append(definition.display_name)
+        self.refresh_all()
+        self.load_checkin_date()
+        self.show_checkin_details()
+        action = "Updated existing" if existing["assessments"] else "Saved new"
+        messagebox.showinfo("Today's Check-In", f"{action} {', '.join(saved)} check-in for {entry_date}. You can add optional details now or choose Not Right Now.")
+
+    def save_optional_details(self):
+        entry_date = parse_date(self.date_var.get())
+        if not entry_date:
+            messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
+            return
+        custom_type = self.custom_event_type.get().strip()
+        if self.include_custom_event.get() and not custom_type:
+            messagebox.showerror("Missing custom event", "Enter a name for the custom event.")
+            return
+        notes = self.notes_box.get("1.0", END).strip()
+        tag = self.note_tag.get().strip()
         update_daily_note(entry_date, notes, tag)
         description = self.checkin_event_desc.get("1.0", END).strip()
         for event_type, var in self.checkin_event_vars.items():
@@ -2431,8 +2470,7 @@ class PHQ9App(Tk):
         self.checkin_event_desc.delete("1.0", END)
         self.refresh_all()
         self.load_checkin_date()
-        action = "Updated existing" if existing["assessments"] or existing["notes"] or existing["events"] else "Saved new"
-        messagebox.showinfo("Saved", f"{action} {', '.join(saved)} check-in for {entry_date}.")
+        self.hide_checkin_details()
 
     def save_event(self):
         event_date = parse_date(self.event_date.get())
