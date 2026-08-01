@@ -59,6 +59,23 @@ The clinician report was shortened so it could support a focused conversation. I
 - Missed days require both honest data handling and a guilt-free recovery path.
 - A local-first application can still support rich clinical conversations without automatic sharing or automated clinical judgment.
 
+## August 1, 2026: Reporting and Export Design Workshop
+
+### Context
+
+Review of the clinician report exposed a mismatch between narrative information and a compact table layout: longer journal entries could be shortened even though the user's words may carry context that symptom scores cannot. The discussion also clarified that a clinician report and an analysis workbook serve different purposes.
+
+### Planned refinements
+
+- Optimize the clinician report for reading and the analysis-ready workbook for independent analysis.
+- Treat user-authored journal text as primary-source information. Clinician reports should preserve it in full rather than abbreviating or summarizing it.
+- Present application observations alongside the user's recorded context without implying that an event caused a symptom or score change.
+- Plan a separate, normalized Excel workbook while keeping the clinician report human-readable.
+
+### Open design questions
+
+Report section names, sequence, and narrative flow remain intentionally open. They will be workshopped and tested before implementation rather than being fixed by this planning entry.
+
 ## Ongoing Journal Practice
 
 Future iteration entries should capture the context that prompted the work, the decisions made, meaningful alternatives that were rejected or deferred, validation performed, consequences, and lessons learned. Significant product or architectural decisions should also be recorded or amended in `docs/decisions/`.

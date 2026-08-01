@@ -8,6 +8,8 @@ The project is privacy-first and local-first by design. Mental health informatio
 
 The application is meant to help a user prepare for conversations with clinicians. It may summarize recorded information, surface patterns, and preserve timeline context, but it should not judge the user, diagnose a condition, recommend treatment, or claim that one event caused a later change.
 
+Preserving the user's own words became an explicit design principle because narrative context can carry information that symptom scores alone cannot. When journal entries appear in clinician reports, the application should keep that primary-source account intact unless the user explicitly asks otherwise.
+
 The intended division of labor is simple:
 
 > **The app remembers, the user adds meaning, the clinician interprets.**

@@ -22,3 +22,9 @@ A concise report is easier to use during a limited clinical conversation. Separa
 - Detailed exports remain part of the product, not an optional substitute for preserved raw information.
 - Report length and rendered layout require validation with synthetic data.
 - The report supports discussion but does not diagnose, recommend treatment, or replace professional judgment.
+
+## Future Considerations
+
+- A planned analysis-ready workbook would use normalized relational worksheets with stable identifiers and documented relationships.
+- Convenience summary worksheets may be added as derived views, while normalized records remain the source of truth.
+- Final clinician-report section names and ordering remain intentionally undecided pending a future design workshop and usability testing.
