@@ -25,6 +25,10 @@ Install example:
 python -m pip install pandas openpyxl Pillow reportlab pypdfium2 pyinstaller
 ```
 
+The source launcher prefers a project-local `.venv` or `venv` when present. Report generation also checks `PHQ9_TRACKER_BUNDLED_PYTHON`, then those project-local environments, before reporting exactly which packages are unavailable.
+
+The release script performs a dependency preflight before invoking PyInstaller. This fails early when report or export dependencies are missing instead of producing an incomplete package.
+
 ## Build Executable and Portable Version
 
 ```powershell
@@ -78,6 +82,8 @@ On startup, existing PHQ-9 rows are copied into `assessment_entries` using `INSE
 
 Iteration 006 requires no schema migration. It adds stable-ID update/delete operations over the existing tables, keeps legacy PHQ-9 rows synchronized, and prevents deleted PHQ-9 assessments from being recreated by the startup migration.
 
+Iteration 007 also requires no schema migration. Date navigation, Review summaries, treatment-cycle windows, and the compact clinician report operate on the existing assessment, note, and treatment-event records.
+
 ## Size Reduction
 
 Current build script excludes common development-only modules such as test tooling, notebooks, and IPython. Inno Setup uses LZMA2 solid compression. Additional opportunities:
@@ -101,7 +107,10 @@ Update these together for each release:
 - Launch portable app.
 - Confirm existing PHQ-9 database rows migrate into `assessment_entries`.
 - Save a Today's Check-In with PHQ-9, GAD-7, notes, and optional treatment event.
+- Navigate across month and year boundaries, confirm an existing date auto-loads, verify future dates are blocked, and confirm unsaved-change protection.
+- Open Review and inspect recent, treatment-cycle, and long-term views using synthetic data.
 - Generate clinician PDF and CSV report when `reportlab` and `Pillow` are available.
+- Confirm the clinician PDF is two to four pages, has no clipped content, and omits duplicate raw PHQ-9 tables.
 - Export CSV and Excel data-only spreadsheets.
 - Confirm installed app data remains under LocalAppData after reinstall/upgrade.
 - Confirm no real databases, reports, exports, logs, screenshots, PHI, or PII are staged for Git.
@@ -111,6 +120,6 @@ Update these together for each release:
 
 ## Current Validation Status
 
-Iteration 006 passed the full automated test suite and manual source-GUI validation with the existing production database. Historical editing, persistence after restart, duplicate-safe resubmission, multiple same-day treatment events, and confirmed deletion were verified without recording private health details in project documentation.
+Iteration 007 passed 28 automated tests using isolated synthetic databases. A four-page synthetic clinician report was generated, structurally checked, rendered to PNG, and visually inspected. Installed/portable packaging and an interactive source-GUI walkthrough remain to be completed before release.
 
 Installed and portable distributions still require final validation on a Windows release workstation with PyInstaller and Inno Setup installed. Until those checks are complete, shortcut creation, installed launch behavior, and final Windows icon presentation remain packaging limitations rather than confirmed release behavior.

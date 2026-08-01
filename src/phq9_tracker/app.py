@@ -173,15 +173,6 @@ ASSESSMENTS = {
 }
 ASSESSMENT_ORDER = ["phq9", "gad7"]
 
-SEVERITY_ORDER = {
-    "Minimal": 0,
-    "Mild": 1,
-    "Moderate": 2,
-    "Moderately severe": 3,
-    "Severe": 4,
-}
-
-
 @dataclass
 class EntryRow:
     id: int
@@ -234,6 +225,16 @@ class PeriodComparison:
     @property
     def has_comparable_data(self) -> bool:
         return self.current.entries_included > 0 and self.previous.entries_included > 0
+
+
+@dataclass(frozen=True)
+class TreatmentCycle:
+    """A descriptive window anchored to a recorded ketamine infusion."""
+
+    label: str
+    start_date: str
+    end_date: str
+    entries: list[EntryRow | AssessmentEntryRow]
 
 
 def severity_for_score(score: int) -> str:
@@ -394,6 +395,117 @@ def comparison_trend_text(comparison: PeriodComparison, include_arrow: bool = Fa
     if comparison.delta > 0:
         return f"{'Up - ' if include_arrow else ''}Higher by {comparison.delta} points"
     return f"{'Right - ' if include_arrow else ''}No score change"
+
+
+def shift_calendar_date(value: str, days: int, today: date | None = None) -> str:
+    """Move an ISO date by whole calendar days without allowing future dates."""
+    parsed = parse_date(value)
+    if not parsed:
+        raise ValueError("Enter the date as YYYY-MM-DD.")
+    shifted = datetime.fromisoformat(parsed).date() + timedelta(days=days)
+    if shifted > (today or date.today()):
+        raise ValueError("Future check-ins are not available.")
+    return shifted.isoformat()
+
+
+def entries_for_window(entries, start_date: str, end_date: str):
+    return [row for row in entries if start_date <= row.entry_date <= end_date]
+
+
+def overall_pattern_summary(
+    phq_entries: list[AssessmentEntryRow],
+    gad_entries: list[AssessmentEntryRow],
+    end_date: str,
+) -> str:
+    """Describe adjacent 14-day patterns without diagnosis or causal language."""
+    phrases = []
+    coverage = []
+    for assessment_id, entries in (("phq9", phq_entries), ("gad7", gad_entries)):
+        comparison = compare_recent_14_day_periods(entries, assessment_id, end_date)
+        label = ASSESSMENTS[assessment_id].display_name
+        coverage.append(f"{label} {comparison.current.entries_included}/14")
+        if not comparison.has_comparable_data:
+            phrases.append(f"{label} does not yet have recorded check-ins in both comparison periods")
+        elif comparison.delta < 0:
+            phrases.append(f"{label} symptom-frequency scores were lower than in the preceding 14 days")
+        elif comparison.delta > 0:
+            phrases.append(f"{label} symptom-frequency scores were higher than in the preceding 14 days")
+        else:
+            phrases.append(f"{label} symptom-frequency scores were unchanged from the preceding 14 days")
+    return f"{' '.join(f'{phrase}.' for phrase in phrases)} Current-period coverage: {', '.join(coverage)} recorded check-ins."
+
+
+def symptom_highlights(
+    assessment_id: str,
+    entries: list[AssessmentEntryRow],
+    end_date: str,
+    limit: int = 2,
+) -> list[str]:
+    """Return the largest recorded item-frequency changes using neutral wording."""
+    definition = ASSESSMENTS[assessment_id]
+    comparison = compare_recent_14_day_periods(entries, assessment_id, end_date)
+    current_entries = entries_for_window(entries, comparison.current_start, comparison.current_end)
+    previous_entries = entries_for_window(entries, comparison.previous_start, comparison.previous_end)
+    if not current_entries:
+        return [f"No {definition.display_name} check-ins were recorded in the current 14-day period."]
+
+    current_counts = [sum(row.items[idx] > 0 for row in current_entries) for idx in range(definition.item_count)]
+    if not previous_entries:
+        ranked = sorted(range(definition.item_count), key=lambda idx: (-current_counts[idx], idx))
+        return [
+            f"Responses related to {definition.item_labels[idx].lower()} were recorded on {current_counts[idx]} of {len(current_entries)} {definition.display_name} check-ins in this period."
+            for idx in ranked[:limit]
+            if current_counts[idx] > 0
+        ] or [f"No {definition.display_name} symptoms were recorded as present in the current period."]
+
+    previous_counts = [sum(row.items[idx] > 0 for row in previous_entries) for idx in range(definition.item_count)]
+    ranked = sorted(
+        range(definition.item_count),
+        key=lambda idx: (-abs(current_counts[idx] - previous_counts[idx]), idx),
+    )
+    highlights = []
+    for idx in ranked:
+        delta = current_counts[idx] - previous_counts[idx]
+        if delta == 0:
+            continue
+        direction = "more often" if delta > 0 else "less often"
+        highlights.append(
+            f"Responses related to {definition.item_labels[idx].lower()} were recorded {direction}: {current_counts[idx]} of {len(current_entries)} check-ins, compared with {previous_counts[idx]} of {len(previous_entries)} previously."
+        )
+        if len(highlights) == limit:
+            break
+    return highlights or [f"Recorded {definition.display_name} symptom frequencies were similar across the two periods."]
+
+
+def treatment_cycles(
+    entries: list[EntryRow | AssessmentEntryRow],
+    events: list[tuple[int, str, str, str]],
+    end_date: str,
+) -> list[TreatmentCycle]:
+    """Return current and previous windows between recorded ketamine infusions."""
+    anchors = sorted(
+        {event_date for _, event_date, event_type, _ in events if normalize_event_type(event_type) == "Ketamine" and event_date <= end_date}
+    )
+    if not anchors:
+        return []
+    cycles = []
+    latest = anchors[-1]
+    cycles.append(TreatmentCycle("Current cycle", latest, end_date, entries_for_window(entries, latest, end_date)))
+    if len(anchors) > 1:
+        previous = anchors[-2]
+        previous_end = (datetime.fromisoformat(latest).date() - timedelta(days=1)).isoformat()
+        cycles.append(TreatmentCycle("Previous cycle", previous, previous_end, entries_for_window(entries, previous, previous_end)))
+    return cycles
+
+
+def treatment_cycle_observation(cycle: TreatmentCycle, assessment_name: str = "PHQ-9") -> str:
+    if not cycle.entries:
+        return f"{cycle.label} ({cycle.start_date} to {cycle.end_date}): no {assessment_name} check-ins were recorded."
+    totals = [row.total for row in cycle.entries]
+    return (
+        f"{cycle.label} ({cycle.start_date} to {cycle.end_date}): {len(totals)} recorded {assessment_name} check-ins; "
+        f"scores ranged from {min(totals)} to {max(totals)} with an average of {sum(totals) / len(totals):.1f}."
+    )
 
 
 def parse_date(value) -> str | None:
@@ -1005,61 +1117,59 @@ def export_entries(path: str) -> None:
             writer.writerows(data)
 
 
-def run_bundled_cli(args: list[str]) -> None:
-    if BUNDLED_PYTHON is None or not BUNDLED_PYTHON.exists():
-        raise RuntimeError("Set PHQ9_TRACKER_BUNDLED_PYTHON or use a Python environment with openpyxl, reportlab, Pillow, and pandas installed.")
-    command = [str(BUNDLED_PYTHON), str(Path(__file__).resolve()), *args]
+def python_supports_modules(python_path: Path, modules: tuple[str, ...]) -> bool:
+    if not python_path.exists():
+        return False
+    imports = "; ".join(f"import {module}" for module in modules)
+    try:
+        result = subprocess.run(
+            [str(python_path), "-c", imports],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def find_helper_python(required_modules: tuple[str, ...]) -> Path | None:
+    """Find a configured or project-local Python that has the requested features."""
+    candidates = []
+    if BUNDLED_PYTHON is not None:
+        candidates.append(BUNDLED_PYTHON)
+    candidates.extend(
+        [
+            PROJECT_ROOT / ".venv" / "Scripts" / "python.exe",
+            PROJECT_ROOT / "venv" / "Scripts" / "python.exe",
+        ]
+    )
+    current = Path(sys.executable).resolve()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if resolved == current:
+            continue
+        if python_supports_modules(resolved, required_modules):
+            return resolved
+    return None
+
+
+def run_bundled_cli(args: list[str], required_modules: tuple[str, ...]) -> None:
+    helper_python = find_helper_python(required_modules)
+    if helper_python is None:
+        names = ", ".join(required_modules)
+        raise RuntimeError(
+            f"This action needs Python packages that are not available: {names}. "
+            "Install the project requirements in .venv, venv, or the active Python environment, "
+            "or set PHQ9_TRACKER_BUNDLED_PYTHON to a compatible python.exe."
+        )
+    command = [str(helper_python), str(Path(__file__).resolve()), *args]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Bundled command failed.")
-
-
-def score_change_flags(entries: list[EntryRow]) -> list[str]:
-    flags = []
-    prior = None
-    for row in entries:
-        pieces = []
-        if prior:
-            delta = row.total - prior.total
-            if delta > 0:
-                pieces.append(f"score increased by {delta}")
-            if SEVERITY_ORDER[row.severity] > SEVERITY_ORDER[prior.severity]:
-                pieces.append(f"severity changed from {prior.severity} to {row.severity}")
-        flags.append("; ".join(pieces))
-        prior = row
-    return flags
-
-
-def period_stats(entries: list[EntryRow]) -> dict[str, str]:
-    if not entries:
-        return {"Average": "n/a", "Minimum": "n/a", "Maximum": "n/a"}
-    totals = [row.total for row in entries]
-    return {
-        "Average": f"{sum(totals) / len(totals):.1f}",
-        "Minimum": str(min(totals)),
-        "Maximum": str(max(totals)),
-    }
-
-
-def plain_language_summary(entries: list[EntryRow], prior_entries: list[EntryRow]) -> str:
-    if not entries:
-        return "No PHQ-9 entries were recorded for the selected date range."
-    first = entries[0]
-    last = entries[-1]
-    delta = last.total - first.total
-    prior_text = ""
-    if prior_entries:
-        current_avg = sum(r.total for r in entries) / len(entries)
-        prior_avg = sum(r.total for r in prior_entries) / len(prior_entries)
-        prior_delta = current_avg - prior_avg
-        direction = "higher" if prior_delta > 0 else "lower" if prior_delta < 0 else "unchanged"
-        prior_text = f" The average score for this period was {abs(prior_delta):.1f} points {direction} than the prior comparable period."
-    direction = "increased" if delta > 0 else "decreased" if delta < 0 else "was unchanged"
-    return (
-        f"Across {len(entries)} recorded entries, the PHQ-9 total score {direction} from "
-        f"{first.total} to {last.total}. The most recent entry was in the {last.severity.lower()} range."
-        f"{prior_text} Review item-level patterns and treatment-event timing with the clinician."
-    )
 
 
 def add_pdf_table(
@@ -1105,17 +1215,6 @@ def add_pdf_table(
     story.append(Spacer(1, 0.14 * inch))
 
 
-def moving_average(values: list[int], window: int) -> list[float | None]:
-    result = []
-    for idx in range(len(values)):
-        if idx + 1 < window:
-            result.append(None)
-        else:
-            chunk = values[idx + 1 - window : idx + 1]
-            result.append(sum(chunk) / len(chunk))
-    return result
-
-
 def normalize_event_type(event_type: str) -> str:
     text = (event_type or "").strip().lower()
     if "ketamine" in text:
@@ -1131,56 +1230,6 @@ def normalize_event_type(event_type: str) -> str:
     if "stop" in text or "discontinued" in text:
         return "Medication Stop"
     return event_type or "Treatment event"
-
-
-def average_total(entries: list[EntryRow]) -> float | None:
-    return sum(row.total for row in entries) / len(entries) if entries else None
-
-
-def entries_near_date(entries: list[EntryRow], target: str, before: int = 0, after: int = 0) -> list[EntryRow]:
-    target_date = datetime.fromisoformat(target).date()
-    start_date = target_date - timedelta(days=before)
-    end_date = target_date + timedelta(days=after)
-    return [
-        row
-        for row in entries
-        if start_date <= datetime.fromisoformat(row.entry_date).date() <= end_date
-    ]
-
-
-def treatment_analysis(entries: list[EntryRow], events: list[tuple[int, str, str, str]], treatment: str) -> list[list[str]]:
-    rows = []
-    matching = [event for event in events if normalize_event_type(event[2]) == treatment]
-    for _, event_date, event_type, description in matching:
-        if treatment == "Ketamine":
-            before_avg = average_total(entries_near_date(entries, event_date, before=7, after=-1))
-            day_avg = average_total(entries_near_date(entries, event_date))
-            after_avg = average_total(entries_near_date(entries, event_date, before=-1, after=7))
-            change = None if before_avg is None or after_avg is None else after_avg - before_avg
-            rows.append(
-                [
-                    event_date,
-                    description or event_type,
-                    "n/a" if before_avg is None else f"{before_avg:.1f}",
-                    "n/a" if day_avg is None else f"{day_avg:.1f}",
-                    "n/a" if after_avg is None else f"{after_avg:.1f}",
-                    "n/a" if change is None else f"{change:+.1f}",
-                ]
-            )
-        else:
-            before_avg = average_total(entries_near_date(entries, event_date, before=7, after=-1))
-            after_avg = average_total(entries_near_date(entries, event_date, before=-1, after=7))
-            change = None if before_avg is None or after_avg is None else after_avg - before_avg
-            rows.append(
-                [
-                    event_date,
-                    description or event_type,
-                    "n/a" if before_avg is None else f"{before_avg:.1f}",
-                    "n/a" if after_avg is None else f"{after_avg:.1f}",
-                    "n/a" if change is None else f"{change:+.1f}",
-                ]
-            )
-    return rows
 
 
 def draw_line_chart(
@@ -1345,96 +1394,25 @@ def on_report_page(canvas, doc):
     canvas.restoreState()
 
 
-def anchor_heading(text: str, anchor: str, style) -> Paragraph:
-    return Paragraph(f'<a name="{anchor}"/>{text}', style)
-
-
-def toc_link(text: str, anchor: str, style) -> Paragraph:
-    return Paragraph(f'<a href="#{anchor}">{text}</a>', style)
-
-
-def ketamine_response_analysis(entries: list[EntryRow], events: list[tuple[int, str, str, str]]) -> list[list[str]]:
-    rows = []
-    ketamine_events = [event for event in events if normalize_event_type(event[2]) == "Ketamine"]
-    for _, event_date, _event_type, description in ketamine_events:
-        event_dt = datetime.fromisoformat(event_date).date()
-        pre_entries = [
-            row
-            for row in entries
-            if event_dt - timedelta(days=14) <= datetime.fromisoformat(row.entry_date).date() < event_dt
-        ]
-        post_entries = [
-            row
-            for row in entries
-            if event_dt <= datetime.fromisoformat(row.entry_date).date() <= event_dt + timedelta(days=30)
-        ]
-        notes = []
-        if len(pre_entries) < 3:
-            notes.append("limited pre-treatment data")
-        if len(post_entries) < 3:
-            notes.append("limited post-treatment data")
-        pre_avg = average_total(pre_entries)
-        if pre_avg is None or not post_entries:
-            rows.append([event_date, description or "Ketamine", "n/a", "n/a", "n/a", "n/a", "; ".join(notes) or "insufficient data"])
-            continue
-        best_row = min(post_entries, key=lambda row: row.total)
-        improvement = pre_avg - best_row.total
-        baseline_return = "not observed"
-        for row in post_entries:
-            row_dt = datetime.fromisoformat(row.entry_date).date()
-            if row_dt > datetime.fromisoformat(best_row.entry_date).date() and row.total >= pre_avg - 1:
-                baseline_return = str((row_dt - event_dt).days)
-                break
-        rows.append(
-            [
-                event_date,
-                description or "Ketamine",
-                f"{pre_avg:.1f}",
-                f"{best_row.total} on {best_row.entry_date}",
-                f"{improvement:+.1f}",
-                baseline_return,
-                "; ".join(notes) or "sufficient for screening-level review",
-            ]
-        )
-    return rows
-
-
 def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
-    if colors is None:
-        raise RuntimeError("PDF export requires reportlab.")
+    if colors is None or PILImage is None:
+        raise RuntimeError("PDF export requires reportlab and Pillow.")
     entries = fetch_assessment_entries("phq9", start, end)
     gad_entries = fetch_assessment_entries("gad7", start, end)
     if not entries and not gad_entries:
         raise ValueError("No entries found in the selected date range.")
-    events = fetch_events(start, end)
     comparison_start = (datetime.fromisoformat(end).date() - timedelta(days=27)).isoformat()
     comparison_phq_entries = fetch_assessment_entries("phq9", comparison_start, end)
     comparison_gad_entries = fetch_assessment_entries("gad7", comparison_start, end)
-    phq_comparison = compare_recent_14_day_periods(comparison_phq_entries, "phq9", end)
-    gad_comparison = compare_recent_14_day_periods(comparison_gad_entries, "gad7", end)
-    recent = entries[-14:]
-    totals = [row.total for row in entries]
-    gad_recent = gad_entries[-14:]
-    gad_totals = [row.total for row in gad_entries]
-    events = [(event_id, event_date, normalize_event_type(event_type), desc) for event_id, event_date, event_type, desc in events]
-    therapy_count = sum(1 for event in events if event[2] == "Therapy")
-    ketamine_count = sum(1 for event in events if event[2] == "Ketamine")
-    medication_count = sum(1 for event in events if event[2].startswith("Medication"))
-    last_30_start = (datetime.fromisoformat(end).date() - timedelta(days=29)).isoformat()
-    last_30_entries = fetch_entries(last_30_start, end)
-    last_30_gad_entries = fetch_assessment_entries("gad7", last_30_start, end)
-    prev_30_end = datetime.fromisoformat(last_30_start).date() - timedelta(days=1)
-    prev_30_start = prev_30_end - timedelta(days=29)
-    prev_30_entries = fetch_entries(prev_30_start.isoformat(), prev_30_end.isoformat())
-    prev_30_gad_entries = fetch_assessment_entries("gad7", prev_30_start.isoformat(), prev_30_end.isoformat())
-    last_30_avg = average_total(last_30_entries)
-    prev_30_avg = average_total(prev_30_entries)
-    last_30_gad_avg = average_total(last_30_gad_entries)
-    prev_30_gad_avg = average_total(prev_30_gad_entries)
-    avg_30_change = None if last_30_avg is None or prev_30_avg is None else last_30_avg - prev_30_avg
-    gad_avg_30_change = None if last_30_gad_avg is None or prev_30_gad_avg is None else last_30_gad_avg - prev_30_gad_avg
-    score_14_day = calculate_14_day_symptom_frequency_score(entries)
-    gad_14_day = calculate_14_day_symptom_frequency_score(gad_entries, 7, "gad7")
+    events = [
+        (event_id, event_date, normalize_event_type(event_type), description)
+        for event_id, event_date, event_type, description in fetch_events(start, end)
+    ]
+    cycles = treatment_cycles(entries, events, end)
+    highlights = [
+        *symptom_highlights("phq9", comparison_phq_entries, end, limit=2),
+        *symptom_highlights("gad7", comparison_gad_entries, end, limit=2),
+    ]
 
     with open(csv_path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
@@ -1453,34 +1431,46 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         for _, event_date, event_type, description in events:
             writer.writerow([event_date, event_type, description])
         writer.writerow([])
-        writer.writerow(["Ketamine Response Analysis"])
-        writer.writerow(["Treatment date", "Description", "Pre-treatment average", "Best post-treatment score", "Improvement", "Days until return to baseline", "Data sufficiency notes"])
-        writer.writerows(ketamine_response_analysis(entries, events))
+        writer.writerow(["Treatment Cycle Observations"])
+        writer.writerow(["Cycle", "Start", "End", "PHQ-9 entries", "Minimum", "Maximum", "Average"])
+        for cycle in cycles:
+            totals = [row.total for row in cycle.entries]
+            writer.writerow(
+                [
+                    cycle.label,
+                    cycle.start_date,
+                    cycle.end_date,
+                    len(totals),
+                    min(totals) if totals else "n/a",
+                    max(totals) if totals else "n/a",
+                    f"{sum(totals) / len(totals):.1f}" if totals else "n/a",
+                ]
+            )
 
     styles = getSampleStyleSheet()
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     chart_dir = Path(tempfile.mkdtemp(prefix="phq9_report_charts_"))
-    item9_chart = chart_dir / "item9_trend.png"
-    gad_chart = chart_dir / "gad7_trend.png"
+    phq_chart = chart_dir / "phq9_recent.png"
+    gad_chart = chart_dir / "gad7_recent.png"
     draw_line_chart(
-        str(item9_chart),
+        str(phq_chart),
         entries[-90:],
-        [("Item 9", [row.items[8] for row in entries[-90:]], "#B45309")],
-        "Question 9 Response Trend",
-        3,
+        [("PHQ-9", [row.total for row in entries[-90:]], "#2563EB")],
+        "PHQ-9 Recorded Score Trend",
+        27,
+        events=events,
+        width=1100,
+        height=360,
     )
     draw_line_chart(
         str(gad_chart),
         gad_entries[-90:],
-        [
-            ("GAD-7 total", [row.total for row in gad_entries[-90:]], "#0F766E"),
-            ("14-entry average", moving_average([row.total for row in gad_entries[-90:]], min(14, max(1, len(gad_entries[-90:])))), "#2563EB"),
-        ],
-        "GAD-7 Daily Severity Score Trend",
+        [("GAD-7", [row.total for row in gad_entries[-90:]], "#0F766E")],
+        "GAD-7 Recorded Score Trend",
         21,
         events=events,
-        show_severity=True,
-        note_markers=True,
+        width=1100,
+        height=360,
     )
 
     story = [
@@ -1488,297 +1478,132 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         Paragraph(f"Date range: {start} to {end}", styles["Normal"]),
         Paragraph(DISCLAIMER, styles["BodyText"]),
         Spacer(1, 0.18 * inch),
-        anchor_heading("Executive Summary", "executive_summary", styles["Heading1"]),
+        Paragraph("Period at a Glance", styles["Heading1"]),
+    ]
+    glance_rows = [["Assessment", "Recorded check-ins", "Most recent score", "Most recent date"]]
+    for assessment_id, assessment_entries in (("phq9", entries), ("gad7", gad_entries)):
+        name = ASSESSMENTS[assessment_id].display_name
+        glance_rows.append(
+            [
+                name,
+                str(len(assessment_entries)),
+                f"{assessment_entries[-1].total} ({assessment_entries[-1].severity})" if assessment_entries else "n/a",
+                assessment_entries[-1].entry_date if assessment_entries else "n/a",
+            ]
+        )
+    add_pdf_table(
+        story,
+        "Recorded Check-Ins",
+        glance_rows,
+        col_widths=[1.2 * inch, 1.35 * inch, 2.1 * inch, 1.45 * inch],
+        wrap_columns={0, 1, 2, 3},
+    )
+    story.append(Paragraph("Overall pattern", styles["Heading2"]))
+    story.append(Paragraph(overall_pattern_summary(comparison_phq_entries, comparison_gad_entries, end), styles["BodyText"]))
+    story.append(Paragraph("Symptom highlights", styles["Heading2"]))
+    for highlight in highlights:
+        story.append(Paragraph(f"- {highlight}", styles["BodyText"]))
+    story.append(Spacer(1, 0.08 * inch))
+    story.append(
         Paragraph(
-            f"This summary compares the latest 14 calendar days ({phq_comparison.current_start} to "
-            f"{phq_comparison.current_end}) with the preceding 14 days ({phq_comparison.previous_start} "
-            f"to {phq_comparison.previous_end}). Missing days are treated as days without a recorded "
-            "symptom-present response, so entry coverage is shown alongside each result.",
+            "Highlights describe recorded check-ins only. A day without a check-in is missing information, not evidence that a symptom was absent.",
             styles["BodyText"],
-        ),
-        Spacer(1, 0.08 * inch),
-    ]
-    executive_rows = [["Assessment", "Current 14 days", "Previous 14 days", "Change", "Entry coverage"]]
-    for comparison in (phq_comparison, gad_comparison):
-        definition = ASSESSMENTS[comparison.assessment_id]
-        executive_rows.append(
-            [
-                definition.display_name,
-                f"{comparison.current.total_score} ({comparison.current.severity})",
-                (
-                    f"{comparison.previous.total_score} ({comparison.previous.severity})"
-                    if comparison.previous.entries_included
-                    else "n/a"
-                ),
-                comparison_trend_text(comparison),
-                f"{comparison.current.entries_included}/14 current; {comparison.previous.entries_included}/14 previous",
-            ]
         )
-    add_pdf_table(
-        story,
-        "14-Day Comparison",
-        executive_rows,
-        col_widths=[1.0 * inch, 1.25 * inch, 1.25 * inch, 1.45 * inch, 1.55 * inch],
-        wrap_columns={1, 2, 3, 4},
     )
-    comparable = [comparison for comparison in (phq_comparison, gad_comparison) if comparison.has_comparable_data]
-    if comparable:
-        directions = []
-        for comparison in comparable:
-            label = ASSESSMENTS[comparison.assessment_id].display_name
-            if comparison.delta < 0:
-                directions.append(f"{label} was lower")
-            elif comparison.delta > 0:
-                directions.append(f"{label} was higher")
-            else:
-                directions.append(f"{label} was unchanged")
-        overall_text = "; ".join(directions) + " than in the preceding period."
-    else:
-        overall_text = "The preceding period does not contain enough recorded data for a score comparison."
-    story.extend(
-        [
-            Paragraph(f"Overall pattern: {overall_text}", styles["BodyText"]),
+
+    story.append(PageBreak())
+    story.append(Paragraph("Recorded Trends", styles["Heading1"]))
+    add_chart(story, str(phq_chart), "PHQ-9 scores across the selected period", width=6.1 * inch)
+    add_chart(story, str(gad_chart), "GAD-7 scores across the selected period", width=6.1 * inch)
+    q9_values = [row.items[8] for row in entries]
+    if q9_values:
+        q9_days = sum(value > 0 for value in q9_values)
+        story.append(Paragraph("PHQ-9 self-harm item", styles["Heading2"]))
+        story.append(
             Paragraph(
-                "These changes summarize recorded responses and should be interpreted with the detailed item tables, notes, treatment events, and a licensed clinician.",
+                f"A response above zero was recorded on {q9_days} of {len(q9_values)} PHQ-9 check-ins in this period. "
+                "This is included as a factual discussion point and is not an assessment of current safety.",
                 styles["BodyText"],
-            ),
-            Spacer(1, 0.18 * inch),
-        Paragraph("Table of Contents", styles["Title"]),
-        toc_link("Executive Summary", "executive_summary", styles["Normal"]),
-        toc_link("Question 9 Monitoring", "q9", styles["Normal"]),
-        toc_link("Clinical Summary / Current Status", "clinical_summary", styles["Normal"]),
-        toc_link("How Scoring Works", "scoring", styles["Normal"]),
-        toc_link("Recent Scoring Summaries", "recent_scores", styles["Normal"]),
-        toc_link("GAD-7 Anxiety Summary", "gad7_summary", styles["Normal"]),
-        toc_link("Most Recent 14-Day Symptom Responses", "recent_symptoms", styles["Normal"]),
-        toc_link("Item-Level Analysis", "item_analysis", styles["Normal"]),
-        toc_link("Daily Notes and Treatment Events", "daily_notes", styles["Normal"]),
-        toc_link("Treatment / Ketamine Analysis", "ketamine_analysis", styles["Normal"]),
-        toc_link("Disclaimers", "disclaimers", styles["Normal"]),
-        PageBreak(),
-        anchor_heading("Question 9 Monitoring", "q9", styles["Heading1"]),
-        Paragraph('"Thoughts that you would be better off dead or of hurting yourself"', styles["Heading2"]),
-        ]
-    )
-    item9_values = [row.items[8] for row in entries]
-    add_pdf_table(
-        story,
-        "Question 9 Summary",
-        [
-            ["Metric", "Value"],
-            ["Average score", f"{sum(item9_values) / len(item9_values):.1f}"],
-            ["Maximum score", str(max(item9_values))],
-            ["Days score > 0", str(sum(1 for value in item9_values if value > 0))],
-            ["Days score > 1", str(sum(1 for value in item9_values if value > 1))],
-            ["Most recent score", str(item9_values[-1])],
-        ],
-        col_widths=[2.8 * inch, 2.0 * inch],
-    )
-    add_chart(story, str(item9_chart), "Question 9 Trend", width=6.7 * inch)
-    tag_groups = {}
-    for row in entries:
-        if row.note_tag:
-            tag_groups.setdefault(row.note_tag, []).append(row.total)
-    if tag_groups:
-        tag_rows = [["Tag", "Entries", "Average total"]] + [
-            [tag, str(len(values)), f"{sum(values) / len(values):.1f}"] for tag, values in sorted(tag_groups.items())
-        ]
-        add_pdf_table(story, "Note Tag Score Summary", tag_rows, col_widths=[2.2 * inch, 1.2 * inch, 1.5 * inch])
-    story.append(PageBreak())
-
-    story.append(anchor_heading("Clinical Summary / Current Status", "clinical_summary", styles["Heading1"]))
-    current_rows = [
-        ["Date range", f"{start} to {end}", "Entries", str(len(entries))],
-        [f"Most recent {DAILY_SCORE_LABEL}", str(entries[-1].total), "Current severity", entries[-1].severity],
-        [FREQUENCY_SCORE_LABEL, str(score_14_day.total_score), "14-day severity", score_14_day.severity],
-        ["Highest score", str(max(totals)), "Lowest score", str(min(totals))],
-        ["Overall average", f"{sum(totals) / len(totals):.1f}", "30-day average", "n/a" if last_30_avg is None else f"{last_30_avg:.1f}"],
-        ["Change vs prior 30 days", "n/a" if avg_30_change is None else f"{avg_30_change:+.1f}", "Therapy / Ketamine", f"{therapy_count} / {ketamine_count}"],
-        ["Medication changes", str(medication_count), "First score", str(entries[0].total)],
-    ]
-    if gad_entries:
-        current_rows.extend(
-            [
-                ["GAD-7 entries", str(len(gad_entries)), f"Most recent GAD-7 {DAILY_SCORE_LABEL}", f"{gad_entries[-1].total} ({gad_entries[-1].severity})"],
-                [f"GAD-7 {FREQUENCY_SCORE_LABEL}", str(gad_14_day.total_score), "GAD-7 14-day severity", gad_14_day.severity],
-                ["GAD-7 average", f"{sum(gad_totals) / len(gad_totals):.1f}", "GAD-7 30-day average", "n/a" if last_30_gad_avg is None else f"{last_30_gad_avg:.1f}"],
-                ["GAD-7 change vs prior 30 days", "n/a" if gad_avg_30_change is None else f"{gad_avg_30_change:+.1f}", "Most recent GAD-7 date", gad_entries[-1].entry_date],
-            ]
-        )
-    add_pdf_table(
-        story,
-        "Current Status",
-        current_rows,
-        col_widths=[1.7 * inch, 1.4 * inch, 1.7 * inch, 1.6 * inch],
-        wrap_columns={0, 2, 3},
-    )
-    story.append(PageBreak())
-
-    story.append(anchor_heading("How Scoring Works", "scoring", styles["Heading1"]))
-    for section in SCORING_EXPLANATION.split("\n\n"):
-        lines = section.splitlines()
-        if lines[0] in {"Daily Severity Score", "14-Day Symptom Frequency Score", "Important distinction", "Data coverage", "Mindful check-ins"}:
-            story.append(Paragraph(lines[0], styles["Heading2"]))
-            if len(lines) > 1:
-                story.append(Paragraph(" ".join(lines[1:]), styles["BodyText"]))
-        else:
-            story.append(Paragraph(" ".join(lines), styles["BodyText"]))
-    story.append(PageBreak())
-
-    story.append(anchor_heading("Recent Scoring Summaries", "recent_scores", styles["Heading1"]))
-    score_rows = [
-        ["Window", "Entries", "Score / average", "Severity", "Date range", "Note"],
-        [
-            "Last 14 calendar days",
-            str(score_14_day.entries_included),
-            str(score_14_day.total_score),
-            score_14_day.severity,
-            f"{score_14_day.start_date} to {score_14_day.end_date}",
-            "Symptom-frequency score; missing days count as no recorded symptom-present day.",
-        ],
-        [
-            "Last 30 days",
-            str(len(last_30_entries)),
-            "n/a" if last_30_avg is None else f"{last_30_avg:.1f} average",
-            "n/a" if last_30_avg is None else severity_for_score(round(last_30_avg)),
-            f"{last_30_start} to {end}",
-            "Average of daily total scores.",
-        ],
-        [
-            "GAD-7 14-day frequency",
-            str(gad_14_day.entries_included),
-            str(gad_14_day.total_score),
-            gad_14_day.severity,
-            f"{gad_14_day.start_date} to {gad_14_day.end_date}",
-            "Symptom-frequency score; missing days count as no recorded symptom-present day.",
-        ],
-        [
-            "GAD-7 last 30 days",
-            str(len(last_30_gad_entries)),
-            "n/a" if last_30_gad_avg is None else f"{last_30_gad_avg:.1f} average",
-            "n/a" if last_30_gad_avg is None else gad7_severity_for_score(round(last_30_gad_avg)),
-            f"{last_30_start} to {end}",
-            "Average of daily total scores.",
-        ],
-    ]
-    add_pdf_table(story, "Recent Scoring Summary", score_rows, col_widths=[1.55 * inch, 0.55 * inch, 0.85 * inch, 1.0 * inch, 1.45 * inch, 1.6 * inch], wrap_columns={0, 4, 5})
-
-    story.append(anchor_heading("GAD-7 Anxiety Summary", "gad7_summary", styles["Heading1"]))
-    if gad_entries:
-        add_chart(story, str(gad_chart), "GAD-7 Daily Severity Score Trend", width=6.7 * inch)
-        gad_item_rows = [["Item", "Daily\naverage", "14-day\nfrequency", "Days\npresent", "Most\nrecent"]]
-        for idx, label in enumerate(GAD7_ITEM_LABELS, start=1):
-            values = [row.items[idx - 1] for row in gad_entries]
-            gad_item_rows.append(
-                [
-                    f"{idx}. {label}",
-                    f"{sum(values) / len(values):.1f}",
-                    str(gad_14_day.item_scores[idx - 1]),
-                    str(gad_14_day.item_counts[idx - 1]),
-                    str(values[-1]),
-                ]
             )
-        add_pdf_table(story, "GAD-7 Item Summary", gad_item_rows, col_widths=[3.05 * inch, 0.85 * inch, 0.95 * inch, 0.85 * inch, 0.75 * inch], wrap_columns={0, 1, 2, 3, 4})
+        )
+
+    story.append(PageBreak())
+    story.append(Paragraph("Treatment-Cycle Observations", styles["Heading1"]))
+    story.append(
+        Paragraph(
+            "Cycles are bounded by recorded ketamine infusion dates. These observations describe timing and recorded scores; they do not determine whether treatment caused a change.",
+            styles["BodyText"],
+        )
+    )
+    if cycles:
+        cycle_rows = [["Cycle", "Dates", "Recorded PHQ-9 pattern"]]
+        for cycle in cycles:
+            cycle_rows.append([cycle.label, f"{cycle.start_date} to {cycle.end_date}", treatment_cycle_observation(cycle)])
         add_pdf_table(
             story,
-            "Recent GAD-7 Responses",
-            [["Date", *(f"I{i}" for i in range(1, 8)), "Total", "Severity"]]
-            + [[row.entry_date, *[str(v) for v in row.items], str(row.total), row.severity] for row in gad_recent],
-            col_widths=[0.85 * inch, *([0.36 * inch] * 7), 0.55 * inch, 1.25 * inch],
+            "Current and Previous Recorded Cycles",
+            cycle_rows,
+            col_widths=[1.0 * inch, 1.65 * inch, 4.05 * inch],
+            wrap_columns={0, 1, 2},
+        )
+        for cycle in cycles:
+            cycle_chart = chart_dir / f"{cycle.label.lower().replace(' ', '_')}.png"
+            draw_line_chart(
+                str(cycle_chart),
+                cycle.entries,
+                [("PHQ-9", [row.total for row in cycle.entries], "#7C3AED")],
+                f"{cycle.label}: Recorded PHQ-9 Scores",
+                27,
+                width=1100,
+                height=300,
+            )
+            add_chart(story, str(cycle_chart), width=6.2 * inch)
+    else:
+        story.append(Paragraph("No ketamine infusion was recorded in the selected period, so cycle views are not available.", styles["BodyText"]))
+
+    timeline = []
+    for _, event_date, event_type, description in events:
+        timeline.append((event_date, event_type, description or "Recorded event"))
+    seen_notes = set()
+    for row in [*entries, *gad_entries]:
+        note_key = (row.entry_date, row.notes.strip(), row.note_tag.strip())
+        if row.notes.strip() and note_key not in seen_notes:
+            seen_notes.add(note_key)
+            timeline.append((row.entry_date, f"Note{f' - {row.note_tag}' if row.note_tag else ''}", row.notes.strip()))
+    timeline = sorted(timeline, key=lambda item: (item[0], item[1]))[-5:]
+
+    story.append(PageBreak())
+    story.append(Paragraph("Timeline Highlights and Discussion Prompts", styles["Heading1"]))
+    if timeline:
+        add_pdf_table(
+            story,
+            "Recent Context",
+            [["Date", "Type", "Recorded context"]]
+            + [[event_date, event_type, text[:140] + ("..." if len(text) > 140 else "")] for event_date, event_type, text in timeline],
+            col_widths=[0.95 * inch, 1.45 * inch, 4.3 * inch],
+            wrap_columns={1, 2},
         )
     else:
-        story.append(Paragraph("No GAD-7 entries were recorded in the selected date range.", styles["BodyText"]))
-    story.append(PageBreak())
-
-    add_pdf_table(
-        story,
-        "Most Recent 14-Day Symptom Responses",
-        [["Date", *(f"I{i}" for i in range(1, 10)), "Total", "Severity"]]
-        + [[row.entry_date, *[str(v) for v in row.items], str(row.total), row.severity] for row in recent],
-        col_widths=[0.85 * inch, *([0.33 * inch] * 9), 0.55 * inch, 1.25 * inch],
-    )
-    story.append(PageBreak())
-
-    story.append(anchor_heading("Most Recent 14-Day Symptom Responses", "recent_symptoms", styles["Heading1"]))
-    add_pdf_table(
-        story,
-        "Recent Symptom Detail",
-        [["Date", *(f"I{i}" for i in range(1, 10)), "Total", "Severity"]]
-        + [[row.entry_date, *[str(v) for v in row.items], str(row.total), row.severity] for row in recent],
-        col_widths=[0.85 * inch, *([0.33 * inch] * 9), 0.55 * inch, 1.25 * inch],
-    )
-    story.append(PageBreak())
-
-    story.append(anchor_heading("Item-Level Analysis", "item_analysis", styles["Heading1"]))
-    item_rows = [["Item", "Daily\naverage", "14-day\nfrequency", "Days\npresent", "Most\nrecent"]]
-    for idx, label in enumerate(ITEM_LABELS, start=1):
-        values = [row.items[idx - 1] for row in entries]
-        item_rows.append(
-            [
-                f"{idx}. {label}",
-                f"{sum(values) / len(values):.1f}",
-                str(score_14_day.item_scores[idx - 1]),
-                str(score_14_day.item_counts[idx - 1]),
-                str(values[-1]),
-            ]
+        story.append(Paragraph("No notes or treatment events were recorded in the selected period.", styles["BodyText"]))
+    story.append(Paragraph("Possible topics for conversation", styles["Heading2"]))
+    prompts = [
+        "Do the recorded symptom patterns match what you remember about this period?",
+        "Were there particular days, events, or treatment dates that would help explain the recorded context?",
+        "Which symptom changes would be most useful to discuss or monitor together next?",
+    ]
+    if q9_values and any(value > 0 for value in q9_values):
+        prompts.insert(0, "A PHQ-9 self-harm response was recorded above zero; consider discussing when it occurred and whether support is needed now.")
+    for prompt in prompts[:4]:
+        story.append(Paragraph(f"- {prompt}", styles["BodyText"]))
+    story.append(Paragraph("How to read this summary", styles["Heading2"]))
+    story.append(
+        Paragraph(
+            "Daily Severity Scores sum the item responses recorded on one check-in. Fourteen-day comparisons describe how often symptoms were recorded as present. "
+            "Coverage is shown because missing check-ins limit what can be concluded.",
+            styles["BodyText"],
         )
-    add_pdf_table(story, "Item Summary Statistics", item_rows, col_widths=[3.05 * inch, 0.85 * inch, 0.95 * inch, 0.85 * inch, 0.75 * inch], wrap_columns={0, 1, 2, 3, 4})
-    chart_entries = entries[-90:]
-    for idx, label in enumerate(ITEM_LABELS, start=1):
-        item_chart = chart_dir / f"item_{idx}.png"
-        item_values = [row.items[idx - 1] for row in chart_entries]
-        draw_line_chart(
-            str(item_chart),
-            chart_entries,
-            [
-                (f"Item {idx}", item_values, "#2563EB" if idx != 9 else "#B45309"),
-                ("14-entry average", moving_average(item_values, min(14, max(1, len(item_values)))), "#0F766E"),
-            ],
-            f"Item {idx}: {label} (last 90 days)",
-            3,
-            width=950,
-            height=360,
-        )
-        add_chart(story, str(item_chart), f"Item {idx} Trend", width=6.7 * inch)
-        if idx in (4, 8):
-            story.append(PageBreak())
-
-    note_rows = [["Date", "Assessment", "Tag", "Note"]]
-    for row in [*entries, *gad_entries]:
-        if row.notes.strip():
-            note_rows.append([row.entry_date, ASSESSMENTS[getattr(row, "assessment_id", "phq9")].display_name, row.note_tag, row.notes])
-    story.append(PageBreak())
-    story.append(anchor_heading("Daily Notes and Treatment Events", "daily_notes", styles["Heading1"]))
-    add_pdf_table(
-        story,
-        "Daily Notes",
-        note_rows if len(note_rows) > 1 else [["Date", "Assessment", "Tag", "Note"], ["No daily notes recorded", "", "", ""]],
-        col_widths=[0.9 * inch, 0.8 * inch, 0.9 * inch, 4.1 * inch],
-        wrap_columns={3},
     )
-    add_pdf_table(
-        story,
-        "Treatment Events",
-        [["Date", "Type", "Description"]]
-        + ([[event_date, event_type, desc] for _, event_date, event_type, desc in events] if events else [["No treatment events recorded", "", ""]]),
-        col_widths=[0.9 * inch, 1.4 * inch, 4.4 * inch],
-        wrap_columns={2},
-    )
-    story.append(PageBreak())
-    story.append(anchor_heading("Treatment / Ketamine Analysis", "ketamine_analysis", styles["Heading1"]))
-    ketamine_rows = ketamine_response_analysis(entries, events)
-    add_pdf_table(
-        story,
-        "Ketamine Response Review",
-        [["Treatment date", "Description", "Pre-treatment average", "Best post-treatment score", "Improvement", "Days to baseline", "Data notes"]]
-        + (ketamine_rows if ketamine_rows else [["No ketamine treatments recorded", "", "", "", "", "", ""]]),
-        col_widths=[0.85 * inch, 1.45 * inch, 0.9 * inch, 1.15 * inch, 0.75 * inch, 0.75 * inch, 1.2 * inch],
-        wrap_columns={1, 6},
-    )
-    story.append(Paragraph("This section estimates whether each ketamine treatment was followed by a lower PHQ-9 score and whether scores returned near pre-treatment baseline within the available follow-up window.", styles["BodyText"]))
-    story.append(PageBreak())
-
-    story.append(anchor_heading("Disclaimers", "disclaimers", styles["Heading1"]))
+    story.append(Spacer(1, 0.12 * inch))
     story.append(Paragraph(DISCLAIMER, styles["BodyText"]))
     doc.build(story, onFirstPage=on_report_page, onLaterPages=on_report_page)
 
@@ -1837,8 +1662,10 @@ class PHQ9App(Tk):
         except Exception:
             pass
         init_db()
+        self._checkin_snapshot = None
         self.create_menu()
         self.create_widgets()
+        self.load_checkin_date(confirm_unsaved=False)
         self.refresh_all()
 
     def create_menu(self):
@@ -1874,7 +1701,7 @@ class PHQ9App(Tk):
         self.events_tab = Frame(self.notebook, bg="#F8FAFC")
         self.history_tab = Frame(self.notebook, bg="#F8FAFC")
         self.scoring_tab = Frame(self.notebook, bg="#F8FAFC")
-        self.notebook.add(self.dashboard, text="Dashboard")
+        self.notebook.add(self.dashboard, text="Review")
         self.notebook.add(self.entry_tab, text="Today's Check-In")
         self.notebook.add(self.history_tab, text="History / Manage Entries")
         self.notebook.add(self.events_tab, text="Treatment Events")
@@ -1891,68 +1718,69 @@ class PHQ9App(Tk):
     def build_dashboard(self):
         top = Frame(self.dashboard, bg="#F8FAFC")
         top.pack(fill="x", pady=(0, 10))
-        Label(top, text="Dashboard", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 16, "bold")).pack(side=LEFT)
+        Label(top, text="Review", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 16, "bold")).pack(side=LEFT)
         Button(top, text="Exports", command=self.export_file).pack(side=RIGHT, padx=(6, 0))
         Button(top, text="Reports", command=lambda: self.notebook.select(self.report_tab)).pack(side=RIGHT, padx=(6, 0))
         Button(top, text="Import Spreadsheet", command=self.import_file).pack(side=RIGHT, padx=(6, 0))
         Button(top, text="Refresh", command=self.refresh_all).pack(side=RIGHT)
 
-        cards = Frame(self.dashboard, bg="#F8FAFC")
-        cards.pack(fill="x", pady=(0, 14))
-        self.dashboard_cards = {}
-        for label in [
-            "PHQ-9 Daily Severity Score",
-            "GAD-7 Daily Severity Score",
-            "PHQ-9 14-Day Symptom Frequency Score",
-            "GAD-7 14-Day Symptom Frequency Score",
-            "Most Recent Date",
-        ]:
-            card = Frame(cards, bg="#FFFFFF", padx=14, pady=10, highlightthickness=1, highlightbackground="#CBD5E1")
-            card.pack(side=LEFT, fill="x", expand=True, padx=(0, 10))
-            Label(card, text=label, bg="#FFFFFF", fg="#64748B", font=("Segoe UI", 9, "bold")).pack(anchor="w")
-            value = Label(card, text="--", bg="#FFFFFF", fg="#172033", font=("Segoe UI", 15, "bold"))
-            value.pack(anchor="w", pady=(4, 0))
-            self.dashboard_cards[label] = value
+        summary = Frame(self.dashboard, bg="#FFFFFF", padx=14, pady=12, highlightthickness=1, highlightbackground="#CBD5E1")
+        summary.pack(fill="x", pady=(0, 10))
+        Label(summary, text="What stands out", bg="#FFFFFF", fg="#172033", font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        self.review_summary = Label(summary, text="No check-ins are available yet.", bg="#FFFFFF", fg="#334155", wraplength=1060, justify=LEFT)
+        self.review_summary.pack(anchor="w", pady=(6, 6))
+        self.review_highlights = []
+        for _ in range(4):
+            label = Label(summary, text="", bg="#FFFFFF", fg="#334155", wraplength=1040, justify=LEFT)
+            label.pack(anchor="w", pady=2)
+            self.review_highlights.append(label)
 
-        main = Frame(self.dashboard, bg="#F8FAFC")
-        main.pack(fill=BOTH, expand=True)
-        left = Frame(main, bg="#F8FAFC")
-        left.pack(side=LEFT, fill=BOTH, expand=True, padx=(0, 8))
-        right = Frame(main, bg="#F8FAFC")
-        right.pack(side=RIGHT, fill=BOTH, expand=True, padx=(8, 0))
+        self.review_notebook = ttk.Notebook(self.dashboard)
+        self.review_notebook.pack(fill=BOTH, expand=True)
+        overview = Frame(self.review_notebook, bg="#F8FAFC")
+        treatment = Frame(self.review_notebook, bg="#F8FAFC")
+        long_term = Frame(self.review_notebook, bg="#F8FAFC")
+        self.review_notebook.add(overview, text="Recent Trends")
+        self.review_notebook.add(treatment, text="Treatment Cycles")
+        self.review_notebook.add(long_term, text="Long-Term Trends")
 
-        Label(left, text="Recent Check-Ins", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 12, "bold")).pack(anchor="w")
-        cols = ["Date", "PHQ-9", "PHQ Severity", "GAD-7", "GAD Severity", "Trend"]
-        self.recent_table = ttk.Treeview(left, columns=cols, show="headings", height=15)
-        for col in cols:
-            self.recent_table.heading(col, text=col)
-            width = 95 if col not in ("PHQ Severity", "GAD Severity", "Trend") else 130
-            self.recent_table.column(col, width=width, anchor="w")
-        self.recent_table.tag_configure("worse", foreground="#B91C1C")
-        self.recent_table.tag_configure("better", foreground="#047857")
-        self.recent_table.tag_configure("neutral", foreground="#475569")
-        self.recent_table.pack(fill=BOTH, expand=True, pady=(6, 0))
+        self.phq_recent_chart = LineChart(overview, width=520, height=250)
+        self.phq_recent_chart.pack(side=LEFT, fill=BOTH, expand=True, padx=(0, 5), pady=6)
+        self.gad_recent_chart = LineChart(overview, width=520, height=250)
+        self.gad_recent_chart.pack(side=RIGHT, fill=BOTH, expand=True, padx=(5, 0), pady=6)
 
-        Label(right, text="Assessment Item Averages", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 12, "bold")).pack(anchor="w")
-        self.item_table = ttk.Treeview(right, columns=["Assessment", "Item", "Daily Average", "14-Day Symptom Frequency Score"], show="headings", height=14)
-        for col, width in [("Assessment", 90), ("Item", 310), ("Daily Average", 100), ("14-Day Symptom Frequency Score", 190)]:
-            self.item_table.heading(col, text=col)
-            self.item_table.column(col, width=width, anchor="w")
-        self.item_table.pack(fill=BOTH, expand=True, pady=(6, 0))
+        self.cycle_labels = []
+        self.cycle_charts = []
+        for side in (LEFT, RIGHT):
+            cycle_frame = Frame(treatment, bg="#F8FAFC")
+            cycle_frame.pack(side=side, fill=BOTH, expand=True, padx=6, pady=6)
+            label = Label(cycle_frame, text="", bg="#F8FAFC", fg="#334155", wraplength=500, justify=LEFT)
+            label.pack(anchor="w", pady=(0, 5))
+            chart = LineChart(cycle_frame, width=500, height=220)
+            chart.pack(fill=BOTH, expand=True)
+            self.cycle_labels.append(label)
+            self.cycle_charts.append(chart)
+
+        self.phq_long_chart = LineChart(long_term, width=1050, height=220)
+        self.phq_long_chart.pack(fill=BOTH, expand=True, padx=6, pady=(6, 3))
+        self.gad_long_chart = LineChart(long_term, width=1050, height=220)
+        self.gad_long_chart.pack(fill=BOTH, expand=True, padx=6, pady=(3, 6))
 
     def build_entry_tab(self):
         form = LabelFrame(self.entry_tab, text="Today's Check-In", bg="#F8FAFC", padx=12, pady=12)
         form.pack(fill=BOTH, expand=True, padx=4, pady=4)
-        Label(form, text="Date (YYYY-MM-DD)", bg="#F8FAFC").grid(row=0, column=0, sticky="w")
+        Button(form, text="← Previous Day", command=lambda: self.navigate_checkin_date(-1)).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.date_var = StringVar(value=date.today().isoformat())
-        Entry(form, textvariable=self.date_var, width=16).grid(row=0, column=1, sticky="w", padx=8, pady=4)
-        Button(form, text="Check Date / Load Existing", command=self.load_checkin_date).grid(row=0, column=2, sticky="w", padx=8)
+        Entry(form, textvariable=self.date_var, width=16, justify="center").grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        self.next_day_button = Button(form, text="Next Day →", command=lambda: self.navigate_checkin_date(1))
+        self.next_day_button.grid(row=0, column=2, sticky="w", padx=8)
+        Button(form, text="Load Date", command=self.load_checkin_date).grid(row=0, column=3, sticky="w", padx=8)
         self.checkin_mode = Label(form, text="New daily entry", bg="#F8FAFC", fg="#047857", font=("Segoe UI", 10, "bold"))
-        self.checkin_mode.grid(row=0, column=3, sticky="w", padx=8)
+        self.checkin_mode.grid(row=0, column=4, sticky="w", padx=8)
 
         self.assessment_item_vars = {}
         assessment_area = Frame(form, bg="#F8FAFC")
-        assessment_area.grid(row=1, column=0, columnspan=4, sticky="nsew", pady=(8, 4))
+        assessment_area.grid(row=1, column=0, columnspan=5, sticky="nsew", pady=(8, 4))
         for col_idx, assessment_id in enumerate(ASSESSMENT_ORDER):
             definition = ASSESSMENTS[assessment_id]
             box = LabelFrame(assessment_area, text=definition.display_name, bg="#F8FAFC", padx=10, pady=10)
@@ -1974,7 +1802,7 @@ class PHQ9App(Tk):
             fg="#475569",
             wraplength=900,
             justify=LEFT,
-        ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(2, 8))
+        ).grid(row=3, column=0, columnspan=5, sticky="w", pady=(2, 8))
 
         self.checkin_details = LabelFrame(
             form,
@@ -1983,7 +1811,7 @@ class PHQ9App(Tk):
             padx=10,
             pady=10,
         )
-        self.checkin_details.grid(row=4, column=0, columnspan=4, sticky="we", pady=(4, 2))
+        self.checkin_details.grid(row=4, column=0, columnspan=5, sticky="we", pady=(4, 2))
         Label(
             self.checkin_details,
             text="These details are optional. Your core check-in has already been recorded.",
@@ -2023,7 +1851,7 @@ class PHQ9App(Tk):
         Button(self.checkin_details, text="Add Another Treatment Event", command=lambda: self.open_history_for_date(self.date_var.get())).grid(row=5, column=3, sticky="e", padx=8, pady=10)
         self.checkin_details.columnconfigure(3, weight=1)
         self.checkin_details.grid_remove()
-        form.columnconfigure(3, weight=1)
+        form.columnconfigure(4, weight=1)
 
     def build_history_tab(self):
         top = Frame(self.history_tab, bg="#F8FAFC")
@@ -2151,11 +1979,50 @@ class PHQ9App(Tk):
         self.checkin_details.grid_remove()
         messagebox.showinfo("Today's Check-In", "Today's check-in is recorded.")
 
-    def load_checkin_date(self):
+    def checkin_state(self) -> tuple:
+        return (
+            tuple(tuple(var.get() for var in self.assessment_item_vars[assessment_id]) for assessment_id in ASSESSMENT_ORDER),
+            self.notes_box.get("1.0", END).strip(),
+            self.note_tag.get().strip(),
+            tuple((event_type, var.get()) for event_type, var in self.checkin_event_vars.items()),
+            self.include_custom_event.get(),
+            self.custom_event_type.get().strip(),
+            self.checkin_event_desc.get("1.0", END).strip(),
+        )
+
+    def has_unsaved_checkin_changes(self) -> bool:
+        return self._checkin_snapshot is not None and self.checkin_state() != self._checkin_snapshot
+
+    def confirm_discard_checkin_changes(self) -> bool:
+        if not self.has_unsaved_checkin_changes():
+            return True
+        return messagebox.askyesno(
+            "Unsaved changes",
+            "This check-in has unsaved changes. Discard them and move to another date?",
+        )
+
+    def navigate_checkin_date(self, days: int):
+        if not self.confirm_discard_checkin_changes():
+            return
+        try:
+            target = shift_calendar_date(self.date_var.get(), days)
+        except ValueError as exc:
+            messagebox.showinfo("Date unavailable", str(exc))
+            return
+        self.date_var.set(target)
+        self.load_checkin_date(confirm_unsaved=False)
+
+    def load_checkin_date(self, confirm_unsaved: bool = True):
+        if confirm_unsaved and not self.confirm_discard_checkin_changes():
+            return
         entry_date = parse_date(self.date_var.get())
         if not entry_date:
             messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
             return
+        if datetime.fromisoformat(entry_date).date() > date.today():
+            messagebox.showerror("Future date", "Future check-ins are not available.")
+            return
+        self.date_var.set(entry_date)
         day_data = fetch_day_data(entry_date)
         assessments = day_data["assessments"]
         has_data = bool(assessments or day_data["notes"] or day_data["events"])
@@ -2177,6 +2044,8 @@ class PHQ9App(Tk):
             text="Update Existing Entry" if has_data else "New daily entry",
             fg="#B45309" if has_data else "#047857",
         )
+        self.next_day_button.config(state="disabled" if entry_date == date.today().isoformat() else "normal")
+        self._checkin_snapshot = self.checkin_state()
 
     def open_history_for_date(self, raw_date: str):
         entry_date = parse_date(raw_date)
@@ -2286,38 +2155,80 @@ class PHQ9App(Tk):
         self.load_history_date()
 
     def refresh_all(self):
-        self.refresh_recent_table()
-        self.refresh_item_table()
         self.refresh_events()
         phq_entries = fetch_assessment_entries("phq9")
         gad_entries = fetch_assessment_entries("gad7")
         all_dates = sorted({row.entry_date for row in phq_entries + gad_entries})
         if all_dates:
             latest_date = all_dates[-1]
-            phq_comparison = compare_recent_14_day_periods(phq_entries, "phq9", latest_date)
-            gad_comparison = compare_recent_14_day_periods(gad_entries, "gad7", latest_date)
-            self.dashboard_cards["PHQ-9 Daily Severity Score"].config(text=f"{phq_entries[-1].total} ({phq_entries[-1].severity})" if phq_entries else "--")
-            self.dashboard_cards["GAD-7 Daily Severity Score"].config(text=f"{gad_entries[-1].total} ({gad_entries[-1].severity})" if gad_entries else "--")
-            self.dashboard_cards["PHQ-9 14-Day Symptom Frequency Score"].config(
-                text=(
-                    f"{phq_comparison.current.total_score} - {comparison_trend_text(phq_comparison, include_arrow=True)}"
-                    if phq_entries
-                    else "--"
-                )
+            self.review_summary.config(text=overall_pattern_summary(phq_entries, gad_entries, latest_date))
+            highlights = [
+                *symptom_highlights("phq9", phq_entries, latest_date, limit=2),
+                *symptom_highlights("gad7", gad_entries, latest_date, limit=2),
+            ]
+            for index, label in enumerate(self.review_highlights):
+                label.config(text=f"• {highlights[index]}" if index < len(highlights) else "")
+
+            phq_recent = phq_entries[-28:]
+            gad_recent = gad_entries[-28:]
+            self.phq_recent_chart.draw_series(
+                phq_recent,
+                [("PHQ-9", [row.total for row in phq_recent], "#2563EB")],
+                27,
+                "Recent PHQ-9 recorded scores",
             )
-            self.dashboard_cards["GAD-7 14-Day Symptom Frequency Score"].config(
-                text=(
-                    f"{gad_comparison.current.total_score} - {comparison_trend_text(gad_comparison, include_arrow=True)}"
-                    if gad_entries
-                    else "--"
-                )
+            self.gad_recent_chart.draw_series(
+                gad_recent,
+                [("GAD-7", [row.total for row in gad_recent], "#0F766E")],
+                21,
+                "Recent GAD-7 recorded scores",
             )
-            self.dashboard_cards["Most Recent Date"].config(text=all_dates[-1])
+
+            cycles = treatment_cycles(phq_entries, fetch_events(end=latest_date), latest_date)
+            for index, (label, chart) in enumerate(zip(self.cycle_labels, self.cycle_charts)):
+                if index < len(cycles):
+                    cycle = cycles[index]
+                    label.config(text=treatment_cycle_observation(cycle))
+                    chart.draw_series(
+                        cycle.entries,
+                        [("PHQ-9", [row.total for row in cycle.entries], "#7C3AED")],
+                        27,
+                        f"{cycle.label}: recorded PHQ-9 scores",
+                    )
+                else:
+                    label.config(text="A second recorded ketamine infusion is needed to show this cycle.")
+                    chart.draw_series([], [], 27, "Treatment cycle not available")
+
+            phq_long = phq_entries[-120:]
+            gad_long = gad_entries[-120:]
+            self.phq_long_chart.draw_series(
+                phq_long,
+                [("PHQ-9", [row.total for row in phq_long], "#2563EB")],
+                27,
+                "Long-term PHQ-9 recorded scores (up to 120 entries)",
+            )
+            self.gad_long_chart.draw_series(
+                gad_long,
+                [("GAD-7", [row.total for row in gad_long], "#0F766E")],
+                21,
+                "Long-term GAD-7 recorded scores (up to 120 entries)",
+            )
             self.report_start.set(self.report_start.get() or all_dates[0])
             self.report_end.set(all_dates[-1])
         else:
-            for value in self.dashboard_cards.values():
-                value.config(text="--")
+            self.review_summary.config(text="No check-ins are available yet. Today's Check-In is ready when you are.")
+            for label in self.review_highlights:
+                label.config(text="")
+            for chart, title, y_max in (
+                (self.phq_recent_chart, "Recent PHQ-9 recorded scores", 27),
+                (self.gad_recent_chart, "Recent GAD-7 recorded scores", 21),
+                (self.phq_long_chart, "Long-term PHQ-9 recorded scores", 27),
+                (self.gad_long_chart, "Long-term GAD-7 recorded scores", 21),
+            ):
+                chart.draw_series([], [], y_max, title)
+            for label, chart in zip(self.cycle_labels, self.cycle_charts):
+                label.config(text="No recorded ketamine infusion is available for cycle review.")
+                chart.draw_series([], [], 27, "Treatment cycle not available")
 
     def refresh_recent_table(self):
         for row in self.recent_table.get_children():
@@ -2398,7 +2309,7 @@ class PHQ9App(Tk):
             return
         try:
             if load_workbook is None:
-                run_bundled_cli(["--import", path])
+                run_bundled_cli(["--import", path], ("openpyxl",))
                 count = "the selected"
             else:
                 count = import_spreadsheet(path)
@@ -2418,7 +2329,7 @@ class PHQ9App(Tk):
             return
         try:
             if path.lower().endswith(".xlsx") and pd is None:
-                run_bundled_cli(["--export", path])
+                run_bundled_cli(["--export", path], ("pandas", "openpyxl"))
             else:
                 export_entries(path)
             messagebox.showinfo("Export complete", f"Saved export to:\n{path}")
@@ -2430,6 +2341,9 @@ class PHQ9App(Tk):
         if not entry_date:
             messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
             return
+        if datetime.fromisoformat(entry_date).date() > date.today():
+            messagebox.showerror("Future date", "Future check-ins are not available.")
+            return
         existing = fetch_day_data(entry_date)
         saved = []
         for assessment_id in ASSESSMENT_ORDER:
@@ -2439,12 +2353,25 @@ class PHQ9App(Tk):
                 messagebox.showerror("Invalid score", f"Each {definition.display_name} item must be 0, 1, 2, or 3.")
                 return
             if assessment_id == "phq9":
-                upsert_entry(entry_date, items, source="manual")
+                upsert_entry(
+                    entry_date,
+                    items,
+                    notes=str(existing["notes"]),
+                    note_tag=str(existing["note_tag"]),
+                    source="manual",
+                )
             else:
-                upsert_assessment_entry(assessment_id, entry_date, items, source="manual")
+                upsert_assessment_entry(
+                    assessment_id,
+                    entry_date,
+                    items,
+                    notes=str(existing["notes"]),
+                    note_tag=str(existing["note_tag"]),
+                    source="manual",
+                )
             saved.append(definition.display_name)
         self.refresh_all()
-        self.load_checkin_date()
+        self.load_checkin_date(confirm_unsaved=False)
         self.show_checkin_details()
         action = "Updated existing" if existing["assessments"] else "Saved new"
         messagebox.showinfo("Today's Check-In", f"{action} {', '.join(saved)} check-in for {entry_date}. You can add optional details now or choose Not Right Now.")
@@ -2469,7 +2396,7 @@ class PHQ9App(Tk):
             upsert_daily_event(entry_date, custom_type, description)
         self.checkin_event_desc.delete("1.0", END)
         self.refresh_all()
-        self.load_checkin_date()
+        self.load_checkin_date(confirm_unsaved=False)
         self.hide_checkin_details()
 
     def save_event(self):
@@ -2503,7 +2430,10 @@ class PHQ9App(Tk):
         csv_path = str(Path(target).with_suffix(".csv"))
         try:
             if colors is None or PILImage is None:
-                run_bundled_cli(["--report-start", start, "--report-end", end, "--report-pdf", target])
+                run_bundled_cli(
+                    ["--report-start", start, "--report-end", end, "--report-pdf", target],
+                    ("reportlab", "PIL"),
+                )
             else:
                 generate_report(start, end, target, csv_path)
             self.report_status.config(text=f"Saved PDF report:\n{target}\n\nSaved CSV report:\n{csv_path}")

@@ -124,3 +124,27 @@ Create an open-source mental health assessment platform that is:
 
 
 
+\---
+
+
+
+\## Development Narrative and Decision Records
+
+
+
+For every substantial future iteration:
+
+
+
+\* Update `DEVELOPMENT_JOURNAL.md` with the context, decisions, meaningful rejected or deferred alternatives, validation, consequences, and lessons learned.
+
+\* Add a new record under `docs/decisions/` when a significant product or architectural decision is accepted.
+
+\* Amend an existing architecture decision record when the decision is refined without being replaced.
+
+\* Mark a superseded decision explicitly and link the replacement record rather than silently rewriting project history.
+
+\* Keep implementation details consistent with `docs/product-principles.md`, or document why a deliberate change to those principles is warranted.
+
+
+

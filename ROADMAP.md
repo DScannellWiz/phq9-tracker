@@ -60,25 +60,38 @@ Delivered:
 - Window, executable, installer, Start Menu, and default desktop shortcut icon wiring.
 - Focused automated tests for editing, deletion, migration safety, multiple events, and duplicate prevention.
 
+## Iteration 007: Present-Focused Check-In and Meaningful Review
+
+Delivered:
+
+- Today's Check-In opens first, saves PHQ-9/GAD-7 before optional details, and keeps historical comparisons out of the present-tense assessment experience.
+- Previous Day and Next Day navigation handles calendar rollover, existing-entry loading, future-date prevention, and unsaved-change protection.
+- Review separates recent trends, current/previous ketamine-cycle observations, and long-term charts.
+- Deterministic summaries use neutral, non-causal wording and disclose entry coverage.
+- The clinician PDF is a two-to-four-page conversation aid centered on overall pattern, symptom highlights, timeline context, treatment-cycle observations, and discussion prompts.
+- Duplicate PHQ-9 response tables and redundant raw-detail sections were removed from the primary PDF.
+- Report dependency discovery and release-build preflight checks were improved.
+- All 28 automated tests passed with isolated synthetic data, and a representative four-page PDF passed rendered visual inspection.
+
+### Development Narrative and Decision Records
+
+Formal development-narrative capture begins around Iteration 007. Earlier project history is documented as a high-level reconstruction rather than contemporaneous notes. Beginning with this iteration, the development journal and architecture decision records are part of the ongoing process for substantial product and architectural work.
+
+## Iteration 007.1: Navigation and Review Polish
+
+Planned small, observable refinements:
+
+- Fix overlapping or clipped chart titles in Review and keep both assessment panels readable when the window is resized.
+- Reorder the primary tabs so **Today's Check-In** is the first tab while continuing to open the application there.
+- Add **Previous Day** and **Next Day** navigation to **History / Manage Entries** using the shared date-navigation behavior.
+- Preserve unsaved-change protection and future-date prevention when navigating historical dates.
+- Show a calm empty state when the selected historical date has no records.
+
+This is a focused documentation and polish scope. It does not change scoring, storage, reports, or the project's privacy boundary.
+
 ## Upcoming Iterations
 
-Iteration 007: User Experience Refresh
-
-Goals:
-- Start with a present-focused Today flow as the Iteration 007 direction check before expanding dashboard, Personal Review, or clinician-report work.
-- Open directly to today's entry, keep prior scores and charts out of that experience, and retain mindful reflection on each assessment item.
-- Save the core assessment before offering one gentle, optional prompt for a treatment event, appointment, or personal note.
-- Use quick common treatment-event choices, plus Other and an optional note, while preserving multiple legitimate events on the same date.
-- Handle missed days without pressure: focus on today and retain optional backfill through existing date-based tools.
-- Keep dashboard cards, charts, and comparison views in a separate Review experience after the Today-flow checkpoint is validated.
-- Move toward the card-based dashboard mockup.
-- Separate PHQ-9 and GAD-7 item summaries into distinct sections.
-- Make Today’s Check-In the central workflow.
-- Add trend chart area for PHQ-9 and GAD-7.
-- Improve spacing, alignment, and readability.
-- Refine interface layout and visual hierarchy without adding unrelated features.
-- Reorganize the clinician report so interpretation guidance and high-value clinical content appear earlier.
-- Move the scoring explanation near the beginning of the clinician report, ideally immediately after the title or within an early How to Read This Report section.
+Analysis-ready workbook export:
 - Add a normalized, analysis-ready workbook export alongside the existing human-readable spreadsheet. The current presentation-oriented layout distributes data across different areas and is not suitable for independent filtering, sorting, pivoting, or external analysis.
 - Organize the analysis-ready workbook into separate tabular worksheets or equivalent normalized datasets for daily assessments, item-level responses, notes, treatment events, and metadata.
 - Use one row per logical record, stable identifiers, ISO-formatted dates, explicit assessment-type and item fields, and consistent column names. Do not use merged cells, decorative blank rows, or calculated report-only presentation that obscures the underlying raw data.

@@ -1,6 +1,6 @@
 BUG: Report generation dependency detection
 
-Status: Open
+Status: Improved in Iteration 007; installed/portable validation pending
 
 Iteration 004 note:
 
@@ -30,6 +30,15 @@ Investigate:
 Expected:
 
 Application automatically locates bundled Python or installed Python environment and generates reports without requiring user configuration.
+
+Resolution notes:
+
+- Source report generation now checks `PHQ9_TRACKER_BUNDLED_PYTHON`, `.venv`, and `venv` for a compatible Python environment.
+- Candidate environments are validated for the packages required by the requested action before a helper process is started.
+- Missing-dependency errors identify the required modules and supported configuration paths.
+- The source launcher prefers project-local virtual environments.
+- The release script performs a dependency preflight before PyInstaller packaging.
+- Automated dependency-probe and full report-generation tests passed. Installed and portable packages still require release-workstation validation.
 
 
 ---
@@ -131,3 +140,62 @@ Resolution:
 - Automated duplicate-prevention, editing, deletion, migration, and multiple-event tests passed with synthetic data.
 - Manual GUI validation completed successfully with the existing production database: prior entries loaded, edits persisted after restart, repeated saves created no duplicates, multiple same-day treatment events were retained, and confirmed deletion behaved as intended.
 - Installed and portable distribution validation remains pending because PyInstaller and Inno Setup were unavailable; this packaging limitation does not affect the source-run duplicate-entry fix.
+
+---
+
+## BUG: Duplicate PHQ-9 14-day response table in clinician report
+
+Status: Fixed in Iteration 007
+
+Priority: Medium
+
+Description:
+
+The clinician report renders the same PHQ-9 14-day response data twice:
+
+- “Most Recent 14-Day Symptom Responses”
+- “Recent Symptom Detail”
+
+Both sections contain the same dates, item values, totals, and severity labels.
+
+Expected:
+
+- Keep a single PHQ-9 14-day response table.
+- Remove the duplicate section unless it is redesigned to provide genuinely different information.
+- Prefer retaining “Most Recent 14-Day Symptom Responses” and removing the redundant “Recent Symptom Detail” section.
+- Add a regression test that verifies the table is rendered only once.
+
+Resolution:
+
+- Replaced the raw-detail-heavy primary PDF with a compact conversation-focused report.
+- Removed both redundant PHQ-9 raw response-table headings from the primary PDF; detailed records remain in data exports.
+- Added a rendered-report regression test that confirms the old duplicate sections are absent and the report remains within the two-to-four-page target.
+
+---
+
+## Iteration 007.1: Navigation and Review Polish
+
+Status: Planned
+
+Priority: Small polish batch
+
+Scope:
+
+- Fix the overlapping or clipped Review chart titles.
+- Reorder the tabs so **Today's Check-In** is the first tab and remains the startup selection.
+- Add **Previous Day** and **Next Day** navigation to **History / Manage Entries** by reusing the established date-navigation behavior.
+- Preserve unsaved-change protection and future-date prevention.
+- Show a calm empty state for dates with no historical records.
+
+Expected:
+
+- PHQ-9 and GAD-7 Review chart titles remain fully readable and do not collide with chart or legend content, including at smaller supported window sizes.
+- The visible tab order follows the primary workflow: today's recording first, intentional Review second, and historical maintenance afterward.
+- History navigation handles month and year rollover, loads existing records, and does not discard unsaved edits without confirmation.
+- Users cannot navigate to or create future-dated check-ins through the shared controls.
+- A date without assessments, notes, or treatment events is described calmly and provides an understandable path to another date.
+
+Validation when implemented:
+
+- Add or update focused automated tests for tab order, shared date navigation, empty dates, future-date blocking, and unsaved-change protection where practical.
+- Complete a manual resize and navigation walkthrough using an isolated synthetic database.

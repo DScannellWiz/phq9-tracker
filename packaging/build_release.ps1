@@ -8,6 +8,11 @@ $Dist = Join-Path $Root "dist"
 $Build = Join-Path $Root "build"
 $PortableOut = Join-Path $Root "release"
 
+python -c "import openpyxl, pandas, PIL, reportlab, pypdf"
+if ($LASTEXITCODE -ne 0) {
+    throw "Release dependencies are incomplete. Install requirements.txt and PyInstaller in the build environment."
+}
+
 New-Item -ItemType Directory -Force -Path $Dist, $Build, $PortableOut | Out-Null
 
 python -m PyInstaller `
