@@ -14,6 +14,8 @@ These principles define the stable philosophical core of the Mental Health Track
 8. **Scores support conversation rather than define the person.** Standardized assessment scores are structured observations, not a complete account of identity, experience, or clinical meaning.
 9. **Respect the division of labor.** **The app remembers, the user adds meaning, the clinician interprets.**
 10. **Keep the user's words intact.** Do not truncate or summarize a user's own journal entries in clinician reports. Summaries belong to the application's observations; the user's words should remain intact unless the user explicitly requests otherwise.
+11. **Make important values directly readable.** Important numerical information should not require precise visual tracing when a direct value affordance, such as a click or hover callout, can be provided.
+12. **Be concise without removing necessary understanding.** Explanations should be as concise as practical, but never so compressed that users or clinicians cannot understand how the presented data or scores were derived.
 
 ## Adaptable Implementation Layers
 

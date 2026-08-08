@@ -21,4 +21,10 @@ A calm, present-focused flow reduces cognitive burden and anchoring from prior r
 - Historical information belongs in Review rather than Today's Check-In.
 - Missed days can be recovered without turning the application into a second calendar.
 - Date changes must preserve unsaved-change protection, load existing records, and prevent future-dated check-ins.
+- History / Manage Entries reuses the same calendar-day navigation rules while maintaining its own unsaved-edit boundary; empty dates remain a manage-only state rather than silently creating new daily records.
 - Optional details remain separate records even when presented as one daily experience.
+
+## Future Considerations
+
+- Chart point values in Review should be directly discoverable through click or hover callouts that show the date and exact score.
+- Direct value access is an accessibility and readability requirement for users who may have difficulty visually tracing a point across a wide chart, not merely a cosmetic enhancement.

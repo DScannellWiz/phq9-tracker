@@ -25,6 +25,7 @@ A concise report is easier to use during a limited clinical conversation. Separa
 
 ## Future Considerations
 
-- A planned analysis-ready workbook would use normalized relational worksheets with stable identifiers and documented relationships.
-- Convenience summary worksheets may be added as derived views, while normalized records remain the source of truth.
+- A planned analysis-ready workbook would use separate normalized **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, and **Metadata** worksheets, with one logical record per row, stable identifiers, and documented relationships.
+- An optional **Daily Summary** worksheet may be added as a derived convenience view, including common treatment-event yes/no columns where useful, while normalized **Treatment Events** records remain the source of truth.
+- The clinician report should restore a fuller **How to Read This Report** section that explains **Daily Severity Score**, **14-Day Symptom Frequency Score**, and the role of entry coverage and missing check-ins. A concise explanation may remain as a quick reminder, but should not be the only guidance.
 - Final clinician-report section names and ordering remain intentionally undecided pending a future design workshop and usability testing.

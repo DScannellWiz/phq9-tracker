@@ -175,7 +175,7 @@ Resolution:
 
 ## Iteration 007.1: Navigation and Review Polish
 
-Status: Planned
+Status: Completed
 
 Priority: Small polish batch
 
@@ -195,7 +195,24 @@ Expected:
 - Users cannot navigate to or create future-dated check-ins through the shared controls.
 - A date without assessments, notes, or treatment events is described calmly and provides an understandable path to another date.
 
-Validation when implemented:
+Implementation:
 
-- Add or update focused automated tests for tab order, shared date navigation, empty dates, future-date blocking, and unsaved-change protection where practical.
-- Complete a manual resize and navigation walkthrough using an isolated synthetic database.
+- Review charts now redraw using the live canvas width and height and place the legend below the rendered title before the plot begins.
+- The tab order is Today's Check-In, Review, History / Manage Entries, Treatment Events, Clinician Report, and How Scoring Works; startup explicitly selects Today's Check-In.
+- History reuses the shared calendar-day shift logic, preserves month/year rollover, loads existing records, blocks future dates, and confirms before discarding unsaved edits.
+- Empty dates use a calm manage-only status and disable record-changing controls so History does not become an accidental new-entry flow.
+- Nine focused tests cover tab order, History navigation and rollover, existing and empty dates, future-date blocking, unsaved-change protection, and responsive chart layout. The dependency-complete test run passed all 37 tests.
+
+Validation:
+
+- The project owner completed the manual source-GUI walkthrough against the canonical repository with real-world data. Tab order and startup selection, Review chart titles and resize behavior, History navigation and rollover, existing and empty dates, future-date blocking, and unsaved-change protection passed.
+- Iteration 007.1 is complete. Installed and portable package validation remains outside this iteration.
+
+---
+
+## Future enhancement: Reporting clarity and chart value discoverability
+
+Status: Planned for Iterations 007.2 and 008; not classified as a defect
+
+- Restore a fuller clinician-report scoring explanation so users and clinicians can understand Daily Severity Score, 14-Day Symptom Frequency Score, and the role of coverage and missing check-ins.
+- Make chart point dates and exact scores directly discoverable through click or hover callouts as an accessibility and readability improvement.

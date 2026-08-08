@@ -79,32 +79,49 @@ Formal development-narrative capture begins around Iteration 007. Earlier projec
 
 ## Iteration 007.1: Navigation and Review Polish
 
-Planned small, observable refinements:
+Status: Completed
 
-- Fix overlapping or clipped chart titles in Review and keep both assessment panels readable when the window is resized.
-- Reorder the primary tabs so **Today's Check-In** is the first tab while continuing to open the application there.
-- Add **Previous Day** and **Next Day** navigation to **History / Manage Entries** using the shared date-navigation behavior.
-- Preserve unsaved-change protection and future-date prevention when navigating historical dates.
-- Show a calm empty state when the selected historical date has no records.
+Implemented small, observable refinements:
 
-This is a focused documentation and polish scope. It does not change scoring, storage, reports, or the project's privacy boundary.
+- Review charts redraw from live canvas dimensions after resizing and reserve separate vertical bands for the full title, legend, and plot.
+- The visible primary-tab order begins with **Today's Check-In**, followed by **Review** and **History / Manage Entries**; startup remains on Today's Check-In.
+- **History / Manage Entries** reuses the shared one-day calendar shift behavior for Previous Day and Next Day navigation.
+- History has its own unsaved-change snapshot and confirmation, blocks future dates, loads existing records, and disables Next Day on the current date.
+- Dates without assessments, notes, or treatment events show a calm manage-only empty state with record-changing controls disabled.
+- Nine focused Iteration 007.1 tests were added; all 37 automated tests pass with the dependency-complete project virtual environment.
+
+The project owner completed the manual source-GUI walkthrough against the canonical repository with real-world data. Tab order and startup selection, Review chart titles and resize behavior, History navigation and rollover, existing and empty dates, future-date blocking, and unsaved-change protection passed. This focused polish does not change scoring, storage, reports, exports, or the project's privacy boundary. Iteration 007.2 has not started.
 
 ## Upcoming Iterations
 
-### Iteration 007.2: Reporting Refinement Planning
+### Iteration 007.2: Reporting & Analysis
 
-Planned refinements for a future design and implementation iteration:
+Planned refinements for a focused future design and implementation iteration:
 
 - Create an analysis-ready Excel workbook as a separate export from the human-readable clinician report.
 - Organize the workbook into normalized worksheets for **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, and **Metadata**.
-- Keep one logical record per row, with stable identifiers, ISO-formatted dates, consistent field names, and documented relationships between worksheets.
-- Consider an optional **Daily Summary** worksheet with yes/no columns for common treatment-event types. Treat this worksheet as a derived convenience view; normalized treatment-event records remain the source of truth.
+- Keep one logical record per row, with stable identifiers, ISO-formatted dates, consistent field names, and documented identifiers and relationships between worksheets so each dataset can be analyzed independently.
+- Consider an optional **Daily Summary** worksheet as a derived convenience view, including yes/no columns for common treatment-event types where useful. Normalized **Treatment Events** records remain the source of truth.
 - Preserve complete user-authored journal text in clinician reports. Do not truncate or abbreviate the user's own words.
+- Restore a fuller **How to Read This Report** explanation in the clinician report. A concise explanation may remain as a reminder, but it should not be the only guidance.
+- Explain the difference between **Daily Severity Score** and **14-Day Symptom Frequency Score**, including how entry coverage and missing check-ins affect what can be concluded.
 - Revisit clinician-report section names and ordering in a future design workshop before implementation. The final naming and flow remain intentionally undecided.
 - Avoid merged cells, decorative blank rows, and report-only presentation that obscures the workbook's underlying data.
 - Keep all current scoring, database, report, and export behavior intact.
 - Do not perform major data model changes.
 - Preserve support for multiple legitimate treatment events on the same date through an explicit “Add another event” action.
+
+### Iteration 008: Micro-UX & Accessibility
+
+Planned small usability and accessibility refinements:
+
+- Make graph point values directly discoverable through click or hover callouts that show the date and exact score.
+- Treat graph value discoverability as an accessibility and readability requirement for users who may have difficulty visually tracing a point across a wide chart, not merely as a cosmetic enhancement.
+- Load a selected date automatically where doing so safely removes an unnecessary click.
+- Use clearer status and confirmation wording.
+- Improve button spacing and consistency, along with typography and general readability.
+- Add keyboard shortcuts where they genuinely reduce effort or improve navigation.
+- Consider scalable text and interface sizing as a future accessibility enhancement.
 
 ## Security and Privacy
 

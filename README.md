@@ -7,9 +7,9 @@ The project began as a PHQ-9 tracker and now supports a reusable multi-assessmen
 ## Current Features
 
 - Today's Check-In for PHQ-9, GAD-7, optional daily notes, and multiple treatment events.
-- Previous Day and Next Day navigation with automatic calendar rollover, future-date prevention, existing-entry loading, and unsaved-change protection.
+- Previous Day and Next Day navigation in both Today's Check-In and History / Manage Entries, with automatic calendar rollover, future-date prevention, existing-record loading, and separate unsaved-change protection for each workflow.
 - Existing-date detection that loads and updates daily records without creating accidental duplicates.
-- History / Manage Entries tools for editing and confirmed deletion of assessments, notes, and treatment events.
+- History / Manage Entries tools for editing and confirmed deletion of assessments, notes, and treatment events, plus a calm read-only state when a selected date has no records.
 - PHQ-9 daily tracking with preserved legacy database compatibility.
 - GAD-7 daily tracking.
 - Clearly labeled Daily Severity Scores and 14-Day Symptom Frequency Scores for each assessment.
@@ -37,9 +37,10 @@ For source runs, execute commands from the project root so the app can locate `d
 1. Open the application.
 2. Use **Today's Check-In** to enter PHQ-9 and GAD-7 responses for the day.
 3. Use **Previous Day** or **Next Day** for short-distance catch-up. Month and year boundaries are handled automatically, existing entries load automatically, and future check-ins are blocked.
-4. Select any relevant event checkboxes, or use **Add Custom Event**. Use **History / Manage Entries** to add another legitimate event of the same type.
-5. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Review information is intentionally kept out of Today's Check-In.
-6. Generate clinician reports or exports when you want a local file to discuss with a care team.
+4. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Review information is intentionally kept out of Today's Check-In.
+5. Use **History / Manage Entries** to move one day at a time, edit existing records, or add another legitimate event to a day that already has records. Empty dates remain read-only and direct you back to Today's Check-In for new daily recording.
+6. Select any relevant event checkboxes in Today's Check-In, or use **Add Custom Event** for another event type.
+7. Generate clinician reports or exports when you want a local file to discuss with a care team.
 
 Daily check-ins intentionally do not copy or autofill previous responses. Each symptom should be considered independently to encourage mindful reflection and higher-quality recorded data.
 

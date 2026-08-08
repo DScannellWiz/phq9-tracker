@@ -76,6 +76,43 @@ Review of the clinician report exposed a mismatch between narrative information 
 
 Report section names, sequence, and narrative flow remain intentionally open. They will be workshopped and tested before implementation rather than being fixed by this planning entry.
 
+## August 7, 2026: Iteration 007.1 Navigation and Review Polish
+
+### Context
+
+Daily use exposed a small group of observable interface issues after Iteration 007: Review titles could collide with legends or draw beyond a canvas after resizing, Today's Check-In opened first but was not the first visible primary tab, and History required manual date entry even though Today already had guarded day navigation. An entirely empty History date also looked too much like an editable new record.
+
+### Decisions
+
+- Keep the scope to navigation, empty-state, and Review-layout polish; do not begin reporting or export work.
+- Make the visible primary-tab order match the intended workflow: record today, review intentionally, then manage historical records.
+- Reuse the existing calendar-day shift logic in History while keeping a separate History edit snapshot and confirmation message.
+- Treat History as a manager of existing records. When a date is entirely empty, explain that calmly and disable record-changing controls rather than implying a load error or offering an accidental creation path.
+- Redraw Review charts from their live canvas dimensions and derive legend/plot positions from the rendered title bounds, so resizing preserves the full title and separates it from chart content.
+
+### Validation and status
+
+All 37 automated tests pass in the dependency-complete project virtual environment. The nine focused Iteration 007.1 tests cover tab order, History navigation and rollover, existing and empty dates, future-date blocking, unsaved-change cancellation, and the responsive chart-layout rules. Python compilation also passes.
+
+The project owner subsequently completed the manual source-GUI walkthrough against the canonical repository with real-world data. Tab order and startup selection, Review chart titles and resize behavior, History navigation and rollover, existing and empty dates, future-date blocking, and unsaved-change protection passed. Iteration 007.1 is complete. No scoring, schema, export, report, or privacy-boundary changes were made, and Iteration 007.2 was not started.
+
+## August 8, 2026: Iteration 007.1 Review with Synthetic Data
+
+### Context
+
+Reviewing Iteration 007.1 with synthetic data showed that the application now feels more coherent and intentionally layered: record today, review recent patterns, and prepare for a clinician discussion. The revised hierarchy and Review experience made the product's purpose easier to understand without changing its local-first or non-diagnostic role.
+
+### Design observations
+
+- The XLSX export should support independent analysis through separate logical worksheets rather than combining unlike records into a presentation-oriented sheet. The normalized workbook planned for Iteration 007.2 should preserve one logical record per row and stable relationships between datasets.
+- The current short scoring explanation is accurate, but it is not sufficient as the only explanation. A fuller **How to Read This Report** section should explain **Daily Severity Score**, **14-Day Symptom Frequency Score**, and the effect of entry coverage and missing check-ins; a concise version may remain as a reminder.
+- Exact graph values should be directly discoverable through a tooltip or click callout that shows the date and score. Requiring a user to visually trace a point across a wide chart can make important numerical information difficult to read.
+- Possible automatic date loading, cleaner status and confirmation wording, more consistent button spacing, useful keyboard shortcuts, and typography and readability refinements belong together as micro-UX work.
+
+### Deliberate deferral
+
+These refinements were deliberately assigned to Iteration 007.2 and Iteration 008 rather than being rushed into the focused Iteration 007.1 polish scope. This keeps the current iteration observable and contained while preserving the newly agreed reporting, analysis, and accessibility needs for deliberate design and validation.
+
 ## Ongoing Journal Practice
 
 Future iteration entries should capture the context that prompted the work, the decisions made, meaningful alternatives that were rejected or deferred, validation performed, consequences, and lessons learned. Significant product or architectural decisions should also be recorded or amended in `docs/decisions/`.

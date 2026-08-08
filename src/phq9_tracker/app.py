@@ -408,6 +408,41 @@ def shift_calendar_date(value: str, days: int, today: date | None = None) -> str
     return shifted.isoformat()
 
 
+def validate_nonfuture_date(value: str, today: date | None = None) -> str:
+    """Normalize an ISO date and reject dates after the local current day."""
+    parsed = parse_date(value)
+    if not parsed:
+        raise ValueError("Enter the date as YYYY-MM-DD.")
+    if datetime.fromisoformat(parsed).date() > (today or date.today()):
+        raise ValueError("Future dates are not available.")
+    return parsed
+
+
+def history_record_count(day_data: dict) -> int:
+    """Count the independently manageable records represented by one day."""
+    return len(day_data["assessments"]) + len(day_data["events"]) + int(bool(day_data["notes"] or day_data["note_tag"]))
+
+
+def history_status_text(entry_date: str, day_data: dict) -> str:
+    """Return calm History status text without implying that a record failed to load."""
+    record_count = history_record_count(day_data)
+    if record_count == 0:
+        return f"Nothing is recorded for {entry_date}. History only manages existing records."
+    return f"Loaded {record_count} record(s) for {entry_date}."
+
+
+def responsive_canvas_dimension(actual: int, configured: int) -> int:
+    """Use live canvas dimensions after layout, including when the window shrinks."""
+    return actual if actual > 1 else configured
+
+
+def chart_vertical_positions(title_bottom: int) -> tuple[int, int]:
+    """Keep the legend below the rendered title and the plot below the legend."""
+    legend_top = title_bottom + 8
+    plot_top = legend_top + 24
+    return legend_top, plot_top
+
+
 def entries_for_window(entries, start_date: str, end_date: str):
     return [row for row in entries if start_date <= row.entry_date <= end_date]
 
@@ -1611,15 +1646,37 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
 class LineChart(Canvas):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, bg="#FFFFFF", highlightthickness=1, highlightbackground="#CBD5E1", **kwargs)
+        self._series_args = None
+        self.bind("<Configure>", self._redraw_after_resize)
 
     def draw_series(self, entries: list[EntryRow], series: list[tuple[str, list[int], str]], y_max: int, title: str) -> None:
+        self._series_args = (entries, series, y_max, title)
+        self._render_series(entries, series, y_max, title)
+
+    def _redraw_after_resize(self, _event=None) -> None:
+        if self._series_args is not None:
+            self._render_series(*self._series_args)
+
+    def _render_series(self, entries: list[EntryRow], series: list[tuple[str, list[int], str]], y_max: int, title: str) -> None:
         self.delete("all")
-        width = max(self.winfo_width(), int(self["width"]))
-        height = max(self.winfo_height(), int(self["height"]))
-        pad_l, pad_r, pad_t, pad_b = 46, 18, 34, 36
-        self.create_text(12, 12, text=title, anchor="nw", fill="#172033", font=("Segoe UI", 11, "bold"))
+        width = responsive_canvas_dimension(self.winfo_width(), int(self["width"]))
+        height = responsive_canvas_dimension(self.winfo_height(), int(self["height"]))
+        pad_l, pad_r, pad_b = 46, 18, 36
+        title_id = self.create_text(
+            12,
+            10,
+            text=title,
+            width=max(120, width - 24),
+            anchor="nw",
+            justify=LEFT,
+            fill="#172033",
+            font=("Segoe UI", 11, "bold"),
+            tags=("chart-title",),
+        )
+        title_bounds = self.bbox(title_id) or (12, 10, width - 12, 28)
+        legend_top, pad_t = chart_vertical_positions(title_bounds[3])
         if not entries or not series:
-            self.create_text(width / 2, height / 2, text="No entries to display", fill="#64748B")
+            self.create_text(width / 2, max(pad_t + 20, height / 2), text="No entries to display", fill="#64748B")
             return
         plot_w = width - pad_l - pad_r
         plot_h = height - pad_t - pad_b
@@ -1645,9 +1702,19 @@ class LineChart(Canvas):
             self.create_text(width - pad_r, height - 14, text=labels[1], anchor="e", fill="#475569", font=("Segoe UI", 8))
         legend_x = pad_l + 8
         for name, _, color in series:
-            self.create_rectangle(legend_x, pad_t - 18, legend_x + 10, pad_t - 8, fill=color, outline=color)
-            self.create_text(legend_x + 14, pad_t - 13, text=name, anchor="w", fill="#334155", font=("Segoe UI", 8))
+            self.create_rectangle(legend_x, legend_top, legend_x + 10, legend_top + 10, fill=color, outline=color, tags=("chart-legend",))
+            self.create_text(legend_x + 14, legend_top + 5, text=name, anchor="w", fill="#334155", font=("Segoe UI", 8), tags=("chart-legend",))
             legend_x += max(90, len(name) * 7)
+
+
+PRIMARY_TAB_ORDER = (
+    "Today's Check-In",
+    "Review",
+    "History / Manage Entries",
+    "Treatment Events",
+    "Clinician Report",
+    "How Scoring Works",
+)
 
 
 class PHQ9App(Tk):
@@ -1663,9 +1730,12 @@ class PHQ9App(Tk):
             pass
         init_db()
         self._checkin_snapshot = None
+        self._history_snapshot = None
+        self._loaded_history_date = None
         self.create_menu()
         self.create_widgets()
         self.load_checkin_date(confirm_unsaved=False)
+        self.load_history_date(confirm_unsaved=False)
         self.refresh_all()
 
     def create_menu(self):
@@ -1701,12 +1771,16 @@ class PHQ9App(Tk):
         self.events_tab = Frame(self.notebook, bg="#F8FAFC")
         self.history_tab = Frame(self.notebook, bg="#F8FAFC")
         self.scoring_tab = Frame(self.notebook, bg="#F8FAFC")
-        self.notebook.add(self.dashboard, text="Review")
-        self.notebook.add(self.entry_tab, text="Today's Check-In")
-        self.notebook.add(self.history_tab, text="History / Manage Entries")
-        self.notebook.add(self.events_tab, text="Treatment Events")
-        self.notebook.add(self.report_tab, text="Clinician Report")
-        self.notebook.add(self.scoring_tab, text="How Scoring Works")
+        tabs = {
+            "Today's Check-In": self.entry_tab,
+            "Review": self.dashboard,
+            "History / Manage Entries": self.history_tab,
+            "Treatment Events": self.events_tab,
+            "Clinician Report": self.report_tab,
+            "How Scoring Works": self.scoring_tab,
+        }
+        for tab_name in PRIMARY_TAB_ORDER:
+            self.notebook.add(tabs[tab_name], text=tab_name)
         self.build_dashboard()
         self.build_entry_tab()
         self.build_history_tab()
@@ -1856,15 +1930,21 @@ class PHQ9App(Tk):
     def build_history_tab(self):
         top = Frame(self.history_tab, bg="#F8FAFC")
         top.pack(fill="x", padx=6, pady=6)
+        self.history_previous_button = Button(top, text="← Previous Day", command=lambda: self.navigate_history_date(-1))
+        self.history_previous_button.pack(side=LEFT, padx=(0, 8))
         Label(top, text="Manage records for date (YYYY-MM-DD)", bg="#F8FAFC").pack(side=LEFT)
         self.history_date = StringVar(value=date.today().isoformat())
         Entry(top, textvariable=self.history_date, width=16).pack(side=LEFT, padx=8)
         Button(top, text="Load Date", command=self.load_history_date).pack(side=LEFT)
+        self.history_next_button = Button(top, text="Next Day →", command=lambda: self.navigate_history_date(1))
+        self.history_next_button.pack(side=LEFT, padx=8)
         self.history_status = Label(top, text="", bg="#F8FAFC", fg="#334155")
         self.history_status.pack(side=LEFT, padx=12)
 
         self.history_assessment_vars = {}
         self.history_assessment_ids = {}
+        self.history_assessment_buttons = {}
+        self.history_assessment_widgets = {}
         assessments_frame = Frame(self.history_tab, bg="#F8FAFC")
         assessments_frame.pack(fill="x", padx=6, pady=4)
         for col_idx, assessment_id in enumerate(ASSESSMENT_ORDER):
@@ -1872,13 +1952,19 @@ class PHQ9App(Tk):
             box = LabelFrame(assessments_frame, text=f"{definition.display_name} responses", bg="#F8FAFC", padx=8, pady=8)
             box.grid(row=0, column=col_idx, sticky="nsew", padx=(0, 8))
             self.history_assessment_vars[assessment_id] = []
+            self.history_assessment_widgets[assessment_id] = []
             for idx in range(definition.item_count):
                 Label(box, text=f"{idx + 1}", bg="#F8FAFC").grid(row=0, column=idx, padx=2)
                 var = IntVar(value=0)
                 self.history_assessment_vars[assessment_id].append(var)
-                ttk.Spinbox(box, from_=0, to=3, textvariable=var, width=3).grid(row=1, column=idx, padx=2)
-            Button(box, text="Update Existing Entry", command=lambda aid=assessment_id: self.save_history_assessment(aid)).grid(row=2, column=0, columnspan=4, sticky="w", pady=(8, 0))
-            Button(box, text="Delete Assessment", command=lambda aid=assessment_id: self.delete_history_assessment(aid)).grid(row=2, column=4, columnspan=5, sticky="e", pady=(8, 0))
+                spinner = ttk.Spinbox(box, from_=0, to=3, textvariable=var, width=3)
+                spinner.grid(row=1, column=idx, padx=2)
+                self.history_assessment_widgets[assessment_id].append(spinner)
+            update_button = Button(box, text="Update Existing Entry", command=lambda aid=assessment_id: self.save_history_assessment(aid))
+            update_button.grid(row=2, column=0, columnspan=4, sticky="w", pady=(8, 0))
+            delete_button = Button(box, text="Delete Assessment", command=lambda aid=assessment_id: self.delete_history_assessment(aid))
+            delete_button.grid(row=2, column=4, columnspan=5, sticky="e", pady=(8, 0))
+            self.history_assessment_buttons[assessment_id] = (update_button, delete_button)
             assessments_frame.columnconfigure(col_idx, weight=1)
 
         notes_box = LabelFrame(self.history_tab, text="Daily note", bg="#F8FAFC", padx=8, pady=8)
@@ -1886,9 +1972,12 @@ class PHQ9App(Tk):
         self.history_notes = Text(notes_box, height=3, width=80)
         self.history_notes.grid(row=0, column=0, columnspan=3, sticky="we")
         self.history_note_tag = StringVar(value="")
-        ttk.Combobox(notes_box, textvariable=self.history_note_tag, values=["", "Finances", "Work", "Family", "Health", "Sleep", "Relationships", "Other"], state="readonly", width=20).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        Button(notes_box, text="Update Existing Note", command=self.save_history_note).grid(row=1, column=1, padx=8, pady=(6, 0))
-        Button(notes_box, text="Delete Note", command=self.delete_history_note).grid(row=1, column=2, pady=(6, 0))
+        self.history_note_tag_widget = ttk.Combobox(notes_box, textvariable=self.history_note_tag, values=["", "Finances", "Work", "Family", "Health", "Sleep", "Relationships", "Other"], state="readonly", width=20)
+        self.history_note_tag_widget.grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self.history_note_update_button = Button(notes_box, text="Update Existing Note", command=self.save_history_note)
+        self.history_note_update_button.grid(row=1, column=1, padx=8, pady=(6, 0))
+        self.history_note_delete_button = Button(notes_box, text="Delete Note", command=self.delete_history_note)
+        self.history_note_delete_button.grid(row=1, column=2, pady=(6, 0))
         notes_box.columnconfigure(0, weight=1)
 
         event_box = LabelFrame(self.history_tab, text="Treatment events", bg="#F8FAFC", padx=8, pady=8)
@@ -1901,12 +1990,17 @@ class PHQ9App(Tk):
         self.history_events_table.grid(row=0, column=0, columnspan=4, sticky="nsew")
         self.history_events_table.bind("<<TreeviewSelect>>", self.select_history_event)
         self.history_event_type = StringVar(value="Therapy")
-        ttk.Combobox(event_box, textvariable=self.history_event_type, values=[*TREATMENT_EVENT_TYPES, "Custom event"], width=28).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self.history_event_type_widget = ttk.Combobox(event_box, textvariable=self.history_event_type, values=[*TREATMENT_EVENT_TYPES, "Custom event"], width=28)
+        self.history_event_type_widget.grid(row=1, column=0, sticky="w", pady=(6, 0))
         self.history_event_desc = StringVar(value="")
-        Entry(event_box, textvariable=self.history_event_desc, width=65).grid(row=1, column=1, sticky="we", padx=6, pady=(6, 0))
-        Button(event_box, text="Add Another Treatment Event", command=self.add_history_event).grid(row=1, column=2, padx=4, pady=(6, 0))
-        Button(event_box, text="Update Selected", command=self.update_history_event).grid(row=2, column=2, padx=4, pady=(6, 0))
-        Button(event_box, text="Delete Selected", command=self.delete_history_event).grid(row=2, column=3, padx=4, pady=(6, 0))
+        self.history_event_desc_widget = Entry(event_box, textvariable=self.history_event_desc, width=65)
+        self.history_event_desc_widget.grid(row=1, column=1, sticky="we", padx=6, pady=(6, 0))
+        self.history_event_add_button = Button(event_box, text="Add Another Treatment Event", command=self.add_history_event)
+        self.history_event_add_button.grid(row=1, column=2, padx=4, pady=(6, 0))
+        self.history_event_update_button = Button(event_box, text="Update Selected", command=self.update_history_event)
+        self.history_event_update_button.grid(row=2, column=2, padx=4, pady=(6, 0))
+        self.history_event_delete_button = Button(event_box, text="Delete Selected", command=self.delete_history_event)
+        self.history_event_delete_button.grid(row=2, column=3, padx=4, pady=(6, 0))
         event_box.columnconfigure(1, weight=1)
         event_box.rowconfigure(0, weight=1)
 
@@ -2048,17 +2142,68 @@ class PHQ9App(Tk):
         self._checkin_snapshot = self.checkin_state()
 
     def open_history_for_date(self, raw_date: str):
+        if not self.confirm_discard_history_changes():
+            return
         entry_date = parse_date(raw_date)
         if entry_date:
             self.history_date.set(entry_date)
         self.notebook.select(self.history_tab)
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
 
-    def load_history_date(self):
-        entry_date = parse_date(self.history_date.get())
-        if not entry_date:
-            messagebox.showerror("Invalid date", "Enter the date as YYYY-MM-DD.")
+    def history_state(self) -> tuple:
+        return (
+            tuple(
+                (assessment_id, tuple(var.get() for var in self.history_assessment_vars[assessment_id]))
+                for assessment_id in ASSESSMENT_ORDER
+            ),
+            self.history_notes.get("1.0", END).strip(),
+            self.history_note_tag.get().strip(),
+            self.history_event_type.get().strip(),
+            self.history_event_desc.get().strip(),
+        )
+
+    def has_unsaved_history_changes(self) -> bool:
+        return self._history_snapshot is not None and self.history_state() != self._history_snapshot
+
+    def confirm_discard_history_changes(self) -> bool:
+        if not self.has_unsaved_history_changes():
+            return True
+        return messagebox.askyesno(
+            "Unsaved changes",
+            "History has unsaved changes. Discard them and move to another date?",
+        )
+
+    def navigate_history_date(self, days: int):
+        if not self.confirm_discard_history_changes():
             return
+        try:
+            target = shift_calendar_date(self.history_date.get(), days)
+        except ValueError as exc:
+            messagebox.showinfo("Date unavailable", str(exc))
+            return
+        self.history_date.set(target)
+        self.load_history_date(confirm_unsaved=False)
+
+    def _loaded_history_action_date(self) -> str | None:
+        try:
+            entry_date = validate_nonfuture_date(self.history_date.get())
+        except ValueError as exc:
+            messagebox.showerror("Date unavailable", str(exc))
+            return None
+        if entry_date != self._loaded_history_date:
+            messagebox.showinfo("Load date first", "Load this date before changing its historical records.")
+            return None
+        return entry_date
+
+    def load_history_date(self, confirm_unsaved: bool = True):
+        if confirm_unsaved and not self.confirm_discard_history_changes():
+            return
+        try:
+            entry_date = validate_nonfuture_date(self.history_date.get())
+        except ValueError as exc:
+            messagebox.showerror("Date unavailable", str(exc))
+            return
+        self.history_date.set(entry_date)
         day_data = fetch_day_data(entry_date)
         assessments = day_data["assessments"]
         for assessment_id in ASSESSMENT_ORDER:
@@ -2066,6 +2211,7 @@ class PHQ9App(Tk):
             self.history_assessment_ids[assessment_id] = row.id if row else None
             for idx, var in enumerate(self.history_assessment_vars[assessment_id]):
                 var.set(row.items[idx] if row else 0)
+        self.history_notes.config(state="normal")
         self.history_notes.delete("1.0", END)
         self.history_notes.insert("1.0", day_data["notes"])
         self.history_note_tag.set(day_data["note_tag"])
@@ -2073,10 +2219,37 @@ class PHQ9App(Tk):
             self.history_events_table.delete(item)
         for event_id, _event_date, event_type, description in day_data["events"]:
             self.history_events_table.insert("", END, iid=str(event_id), values=[event_type, description])
-        record_count = len(assessments) + len(day_data["events"]) + bool(day_data["notes"] or day_data["note_tag"])
-        self.history_status.config(text=f"Loaded {record_count} record(s) for {entry_date}.")
+        self.history_event_type.set("Therapy")
+        self.history_event_desc.set("")
+        has_records = history_record_count(day_data) > 0
+        has_note = bool(day_data["notes"] or day_data["note_tag"])
+        for assessment_id, (update_button, delete_button) in self.history_assessment_buttons.items():
+            state = "normal" if assessment_id in assessments else "disabled"
+            update_button.config(state=state)
+            delete_button.config(state=state)
+            for spinner in self.history_assessment_widgets[assessment_id]:
+                spinner.config(state=state)
+        note_edit_state = "normal" if has_records else "disabled"
+        self.history_notes.config(state=note_edit_state)
+        self.history_note_tag_widget.config(state="readonly" if has_records else "disabled")
+        self.history_note_update_button.config(
+            state=note_edit_state,
+            text="Update Existing Note" if has_note else "Add Daily Note",
+        )
+        self.history_note_delete_button.config(state="normal" if has_note else "disabled")
+        self.history_event_type_widget.config(state="normal" if has_records else "disabled")
+        self.history_event_desc_widget.config(state="normal" if has_records else "disabled")
+        self.history_event_add_button.config(state="normal" if has_records else "disabled")
+        self.history_event_update_button.config(state="normal" if day_data["events"] else "disabled")
+        self.history_event_delete_button.config(state="normal" if day_data["events"] else "disabled")
+        self.history_status.config(text=history_status_text(entry_date, day_data))
+        self.history_next_button.config(state="disabled" if entry_date == date.today().isoformat() else "normal")
+        self._loaded_history_date = entry_date
+        self._history_snapshot = self.history_state()
 
     def save_history_assessment(self, assessment_id: str):
+        if not self._loaded_history_action_date():
+            return
         entry_id = self.history_assessment_ids.get(assessment_id)
         if not entry_id:
             messagebox.showinfo("No existing assessment", "Use Today's Check-In to create a new assessment for this date.")
@@ -2085,12 +2258,14 @@ class PHQ9App(Tk):
         try:
             update_assessment_entry(entry_id, assessment_id, items)
             self.refresh_all()
-            self.load_history_date()
+            self.load_history_date(confirm_unsaved=False)
             messagebox.showinfo("Updated", f"Updated the existing {ASSESSMENTS[assessment_id].display_name} assessment without changing its record ID.")
         except Exception as exc:
             messagebox.showerror("Update failed", str(exc))
 
     def delete_history_assessment(self, assessment_id: str):
+        if not self._loaded_history_action_date():
+            return
         entry_id = self.history_assessment_ids.get(assessment_id)
         if not entry_id:
             return
@@ -2099,60 +2274,65 @@ class PHQ9App(Tk):
             return
         delete_assessment_entry(entry_id, assessment_id)
         self.refresh_all()
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
 
     def save_history_note(self):
-        entry_date = parse_date(self.history_date.get())
+        entry_date = self._loaded_history_action_date()
         if not entry_date:
             return
         update_daily_note(entry_date, self.history_notes.get("1.0", END).strip(), self.history_note_tag.get().strip())
         self.refresh_all()
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
         messagebox.showinfo("Updated", "Updated the existing daily note without creating another record.")
 
     def delete_history_note(self):
-        entry_date = parse_date(self.history_date.get())
+        entry_date = self._loaded_history_action_date()
         if not entry_date or not messagebox.askyesno("Confirm deletion", f"Permanently delete the daily note for {entry_date}?"):
             return
         delete_daily_note(entry_date)
         self.refresh_all()
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
 
     def select_history_event(self, _event=None):
         selected = self.history_events_table.selection()
         if not selected:
             return
+        already_unsaved = self.has_unsaved_history_changes()
         values = self.history_events_table.item(selected[0], "values")
         self.history_event_type.set(values[0])
         self.history_event_desc.set(values[1])
+        if not already_unsaved:
+            self._history_snapshot = self.history_state()
 
     def add_history_event(self):
-        entry_date = parse_date(self.history_date.get())
+        entry_date = self._loaded_history_action_date()
         event_type = self.history_event_type.get().strip()
         if not entry_date or not event_type:
             messagebox.showerror("Missing information", "Enter a valid date and event type.")
             return
         add_event(entry_date, event_type, self.history_event_desc.get().strip(), dedupe=False)
         self.refresh_all()
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
 
     def update_history_event(self):
         selected = self.history_events_table.selection()
-        entry_date = parse_date(self.history_date.get())
+        entry_date = self._loaded_history_action_date()
         if not selected or not entry_date:
             messagebox.showinfo("Select an event", "Select the treatment event to update.")
             return
         update_event(int(selected[0]), entry_date, self.history_event_type.get().strip() or "Treatment event", self.history_event_desc.get().strip())
         self.refresh_all()
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
 
     def delete_history_event(self):
+        if not self._loaded_history_action_date():
+            return
         selected = self.history_events_table.selection()
         if not selected or not messagebox.askyesno("Confirm deletion", "Permanently delete the selected treatment event?"):
             return
         delete_event(int(selected[0]))
         self.refresh_all()
-        self.load_history_date()
+        self.load_history_date(confirm_unsaved=False)
 
     def refresh_all(self):
         self.refresh_events()
