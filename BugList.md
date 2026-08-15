@@ -3,7 +3,7 @@ Last substantive update: 2026-08-15
 
 BUG: Report generation dependency detection
 
-Status: Improved in Iteration 007; installed/portable validation pending
+Status: Improved in Iteration 007; portable validated in Iteration 007.2; installed validation pending
 
 Iteration 004 note:
 
@@ -41,7 +41,8 @@ Resolution notes:
 - Missing-dependency errors identify the required modules and supported configuration paths.
 - The source launcher prefers project-local virtual environments.
 - The release script performs a dependency preflight before PyInstaller packaging.
-- Automated dependency-probe and full report-generation tests passed. Installed and portable packages still require release-workstation validation.
+- Automated dependency-probe and full report-generation tests passed.
+- The Iteration 007.2 portable build generated both the clinician PDF and Analysis Workbook successfully. Installed-mode report generation still requires installer validation.
 
 
 ---
@@ -83,7 +84,7 @@ Fix:
 
 Application Branding
 
-Status: Open; wiring verified in Iteration 007.2, packaged behavior deferred
+Status: Open; packaged runtime discrepancy confirmed in Iteration 007.2
 
 Description:
 Executable and running application do not consistently use the Mental Health Tracker application icon.
@@ -101,7 +102,10 @@ Iteration 007.2 validation note:
 
 - Source code calls `iconbitmap` with `packaging\assets\PHQ9_Tracker.ico`.
 - PyInstaller embeds the same asset through `--icon`; Inno Setup and installed shortcuts also reference it.
-- Final executable, running taskbar, portable, installer, Start Menu, and desktop icon behavior was not validated because PyInstaller and Inno Setup were unavailable. This remains a packaging issue and did not expand the reporting iteration.
+- PyInstaller 6.22.1 embedded the intended icon in the portable executable.
+- The packaged application launched successfully, but its running window/taskbar representation still showed the generic Tk feather.
+- This is a deferred low-priority cosmetic packaging issue and does not block the validated Florida portable ZIP.
+- Inno Setup remains unavailable, so installer, Start Menu, and desktop-shortcut icon behavior is still unvalidated.
 
 ---
 
@@ -148,7 +152,7 @@ Resolution:
 - The explicit Add Another Treatment Event action can intentionally create a second legitimate event, including another event of the same type.
 - Automated duplicate-prevention, editing, deletion, migration, and multiple-event tests passed with synthetic data.
 - Manual GUI validation completed successfully with the existing production database: prior entries loaded, edits persisted after restart, repeated saves created no duplicates, multiple same-day treatment events were retained, and confirmed deletion behaved as intended.
-- Installed and portable distribution validation remains pending because PyInstaller and Inno Setup were unavailable; this packaging limitation does not affect the source-run duplicate-entry fix.
+- Portable persistence and reset behavior passed in the real Windows package. Installed distribution validation remains pending because Inno Setup is unavailable; this packaging limitation does not affect the duplicate-entry fix.
 
 ---
 

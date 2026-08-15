@@ -5,7 +5,7 @@ Last substantive update: 2026-08-15
 
 ## Status
 
-Implementation and automated source-level validation complete. Interactive GUI and actual Windows portable/installer packaging validation remain deferred because the available Python lacks a usable Tcl/Tk installation and PyInstaller/Inno Setup were unavailable.
+Implementation, automated source-level validation, and real Windows portable-package validation are complete. The portable ZIP is validated for the immediate Florida use case. Installer validation remains pending because Inno Setup is unavailable. The packaged runtime window/taskbar icon still shows the generic Tk feather and is tracked as a deferred cosmetic packaging issue rather than a release blocker.
 
 ## Objectives
 
@@ -53,13 +53,18 @@ Implementation and automated source-level validation complete. Interactive GUI a
 - A four-page synthetic clinician report passed text extraction and complete-note checks, then every page was rendered and visually inspected for clipping, overlap, special-character handling, tables, charts, section transitions, footers, and page numbering.
 - Source and packaging files consistently reference `packaging/assets/PHQ9_Tracker.ico`.
 - The attempted source-GUI smoke test stopped before the application window opened because the available Python runtime could not find a usable `init.tcl`. No interactive GUI result is claimed.
+- PyInstaller 6.22.1 built the folder-based application successfully and created `release\PHQ9Tracker-Portable-0.2.0\` and `release\PHQ9Tracker-Portable-0.2.0.zip`.
+- Before first launch, both the portable folder and ZIP were inspected and contained no `.sqlite`, `.db`, or `.sqlite3` files.
+- The first packaged launch created `phq9_tracker.sqlite` inside the portable folder. Review, History / Manage Entries, Treatment Events, Clinician Report, and How Scoring Works opened cleanly with no prior data.
+- Synthetic entries persisted across a full close and reopen. The packaged clinician PDF generated successfully and passed manual review.
+- The packaged Analysis Workbook generated successfully and passed structural and data-integrity inspection. Its seven worksheets were **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, **Metadata**, and **Daily Summary**; relationships and calculations reconciled, narrative and event text was complete, and no merged cells were present.
+- Deleting the portable database and relaunching recreated a pristine blank state.
+- PyInstaller embedded the intended icon, but the running window/taskbar representation still showed the generic Tk feather. This is a deferred cosmetic packaging issue, not a blocker for the validated portable ZIP.
 
 ## Remaining Work
 
-- Build the actual Windows portable ZIP on a workstation with PyInstaller, inspect the archive for private artifacts, launch it, repeat the synthetic persistence/reset test, and leave the package pristine.
-- Validate executable, taskbar, portable, installer, Start Menu, and desktop icon behavior. Log any remaining discrepancy as packaging work.
-- Compile and test the Inno Setup installer.
-- Perform the owner's interactive source and portable GUI walkthrough.
+- Resolve and revalidate the runtime window/taskbar icon so it uses the intended application icon instead of the generic Tk feather.
+- Install Inno Setup, then compile and test the installer, including installed-mode launch, LocalAppData persistence, Start Menu behavior, desktop-shortcut behavior, and installed icon presentation.
 
 ## Deferred Architecture Concepts
 
@@ -77,3 +82,4 @@ A future LAN-only mode should keep SQLite local to one authoritative host. Clien
 - “Compact” must describe information design, not the deletion of user-authored context.
 - Export identifiers can provide stable analytical relationships without prematurely changing the database schema.
 - Portable database behavior can be tested safely with synthetic data, but source-level routing evidence is not a substitute for validating the final packaged ZIP.
+- A portable package can be suitable for a specific release use case even when a cosmetic runtime-icon defect and the separate installer-validation path remain open, provided the limitation is documented and privacy/data-integrity checks pass.

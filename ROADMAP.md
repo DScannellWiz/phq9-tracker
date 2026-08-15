@@ -52,7 +52,7 @@ Delivered:
 
 ## Iteration 006: Completed
 
-Iteration 006 delivered data integrity, scoring clarity, and application branding. Automated validation and manual source-GUI validation with the existing production database are complete. Installed and portable packaging validation remains pending until PyInstaller and Inno Setup are available.
+Iteration 006 delivered data integrity, scoring clarity, and application branding. Automated validation and manual source-GUI validation with the existing production database are complete. Real Windows portable-package validation was completed during Iteration 007.2; installer validation remains pending until Inno Setup is available.
 
 Delivered:
 
@@ -111,7 +111,9 @@ Delivered:
 - Removed journal-row and character limits. All user-authored notes in the selected period are included verbatim; report length may grow when the recorded narrative requires it.
 - Preserved scoring, schema, database routing, legacy PHQ-9 compatibility, and multiple legitimate same-day treatment events.
 - Added focused workbook, full-journal, and portable database routing/persistence/reset tests. All 40 automated tests pass with synthetic data.
-- Generated and visually inspected a four-page synthetic clinician report. The actual Windows portable ZIP build remains pending because PyInstaller and Inno Setup were unavailable; the icon remains a deferred packaging-validation issue.
+- Generated and visually inspected a four-page synthetic clinician report.
+- Built and validated the real Windows portable package with PyInstaller 6.22.1. The initial folder and ZIP contained no database files; first launch created the portable database in place; the primary screens opened blank; synthetic records persisted across restart; packaged PDF and Analysis Workbook outputs passed review; and database deletion followed by relaunch restored a pristine blank state.
+- Validated `PHQ9Tracker-Portable-0.2.0.zip` for the Florida use case. The generic Tk runtime window/taskbar icon remains a deferred cosmetic issue, and installer validation remains pending because Inno Setup is unavailable.
 
 ### Future Data Portability & Recovery
 

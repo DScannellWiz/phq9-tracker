@@ -140,6 +140,12 @@ Portable path selection, synthetic persistence, and pristine reinitialization pa
 
 The final source-GUI smoke attempt could not create a window because the available Python runtime lacked a usable Tcl/Tk `init.tcl`. Automated validation remains green, but interactive GUI behavior is not claimed from this environment.
 
+Later the same day, the owner completed the real Windows portable validation on a suitable workstation. PyInstaller 6.22.1 built the folder-based application, portable folder, and `PHQ9Tracker-Portable-0.2.0.zip`. Inspection before first launch confirmed that neither the folder nor the ZIP contained `.sqlite`, `.db`, or `.sqlite3` files. First launch created `phq9_tracker.sqlite` inside the portable folder; Review, History / Manage Entries, Treatment Events, Clinician Report, and How Scoring Works opened cleanly with no prior data.
+
+Synthetic entries persisted across a full close and reopen. The packaged clinician PDF passed manual review. The packaged Analysis Workbook contained the seven expected worksheets and passed structural/data-integrity inspection, including relationship reconciliation, complete narrative/event text, no merged cells, and consistent calculations. Deleting the portable database and relaunching recreated a pristine blank state. This validates the portable ZIP for the immediate Florida use case without placing the generated database or synthetic artifacts in the distribution ZIP.
+
+The runtime window/taskbar icon still displayed the generic Tk feather even though PyInstaller embedded the intended icon. That discrepancy remains a deferred cosmetic packaging issue rather than a release blocker. Inno Setup remains unavailable, so installer validation is still pending.
+
 No scoring formulas, database schema, production records, or privacy boundaries changed.
 
 ## Ongoing Journal Practice
