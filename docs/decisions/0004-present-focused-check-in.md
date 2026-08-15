@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-08
+
 # ADR 0004: Present-Focused Check-In
 
 ## Status

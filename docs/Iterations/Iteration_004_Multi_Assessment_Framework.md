@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-07-03
+
 # Iteration 004 - Multi-Assessment Framework and Modernized User Experience
 
 ## Objectives

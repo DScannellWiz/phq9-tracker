@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-01
+
 # ADR 0003: Daily and 14-Day Scoring
 
 ## Status

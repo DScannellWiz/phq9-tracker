@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-07-11
+
 # Iteration 005: Clarity and Insight
 
 ## Objectives

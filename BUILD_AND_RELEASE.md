@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 # Build and Release Notes
 
 ## Packaging Choice
@@ -84,6 +87,8 @@ Iteration 006 requires no schema migration. It adds stable-ID update/delete oper
 
 Iteration 007 also requires no schema migration. Date navigation, Review summaries, treatment-cycle windows, and the compact clinician report operate on the existing assessment, note, and treatment-event records.
 
+Iteration 007.2 requires no schema migration. Its normalized analysis workbook derives stable relationships from existing assessment IDs, treatment-event IDs, and deterministic date/item identifiers.
+
 ## Size Reduction
 
 Current build script excludes common development-only modules such as test tooling, notebooks, and IPython. Inno Setup uses LZMA2 solid compression. Additional opportunities:
@@ -110,8 +115,11 @@ Update these together for each release:
 - Navigate across month and year boundaries, confirm an existing date auto-loads, verify future dates are blocked, and confirm unsaved-change protection.
 - Open Review and inspect recent, treatment-cycle, and long-term views using synthetic data.
 - Generate clinician PDF and CSV report when `reportlab` and `Pillow` are available.
-- Confirm the clinician PDF is two to four pages, has no clipped content, and omits duplicate raw PHQ-9 tables.
+- Confirm the clinician PDF has no clipped content, preserves every selected-period journal entry in full, and omits duplicate raw PHQ-9 tables. Typical reports remain compact, but narrative-heavy reports may exceed four pages rather than truncate user text.
 - Export CSV and Excel data-only spreadsheets.
+- Export the normalized analysis workbook and confirm its seven logical worksheets contain no merged cells, one logical record per row, and valid identifier relationships.
+- Inspect the portable folder and ZIP before launch; confirm they contain no database, report, export, log, screenshot, PHI, or PII.
+- Launch the portable package, confirm it creates `phq9_tracker.sqlite` beside the executable, save synthetic data, restart and confirm persistence, then delete/reset the synthetic database and verify a fresh launch contains zero records.
 - Confirm installed app data remains under LocalAppData after reinstall/upgrade.
 - Confirm no real databases, reports, exports, logs, screenshots, PHI, or PII are staged for Git.
 - Confirm the running window and taskbar representation use `packaging\assets\PHQ9_Tracker.ico` where Windows supports it.
@@ -120,6 +128,8 @@ Update these together for each release:
 
 ## Current Validation Status
 
-Iteration 007 passed 28 automated tests using isolated synthetic databases. A four-page synthetic clinician report was generated, structurally checked, rendered to PNG, and visually inspected. Installed/portable packaging and an interactive source-GUI walkthrough remain to be completed before release.
+Iteration 007.2 passed 40 automated tests using isolated synthetic databases. A normalized workbook passed worksheet, relationship, no-merge, full-text, ISO-date, and same-day-event checks. A four-page synthetic clinician report was structurally checked, rendered to PNG, and visually inspected with complete long-form notes.
 
-Installed and portable distributions still require final validation on a Windows release workstation with PyInstaller and Inno Setup installed. Until those checks are complete, shortcut creation, installed launch behavior, and final Windows icon presentation remain packaging limitations rather than confirmed release behavior.
+The portable database-routing test confirmed that portable mode selects a database beside the executable, persists synthetic data across a reopen, and returns to zero records after deletion and clean reinitialization. The actual executable/ZIP build could not be completed because PyInstaller was unavailable and its attempted workspace-only installation stalled; Inno Setup was also unavailable. Until a release workstation completes the package test, ZIP contents, executable launch behavior, shortcuts, and final Windows icon presentation remain unconfirmed packaging limitations.
+
+An attempted source-GUI smoke test also stopped before window creation because the available bundled Python runtime could not locate a usable Tcl/Tk `init.tcl`. Automated logic, workbook, and PDF validation passed, but no interactive GUI result is claimed for this environment.

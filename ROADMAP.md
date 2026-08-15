@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 # Roadmap
 
 ## Vision
@@ -14,6 +17,7 @@ Build a privacy-first, local-only mental health tracking application that helps 
 - Multi-assessment dashboard.
 - Clinician PDF reports and companion CSV reports.
 - CSV/XLSX data exports.
+- Separate normalized XLSX analysis workbook.
 - Treatment event tracking.
 - Daily notes.
 - GitHub-ready project structure.
@@ -90,26 +94,42 @@ Implemented small, observable refinements:
 - Dates without assessments, notes, or treatment events show a calm manage-only empty state with record-changing controls disabled.
 - Nine focused Iteration 007.1 tests were added; all 37 automated tests pass with the dependency-complete project virtual environment.
 
-The project owner completed the manual source-GUI walkthrough against the canonical repository with real-world data. Tab order and startup selection, Review chart titles and resize behavior, History navigation and rollover, existing and empty dates, future-date blocking, and unsaved-change protection passed. This focused polish does not change scoring, storage, reports, exports, or the project's privacy boundary. Iteration 007.2 has not started.
+The project owner completed the manual source-GUI walkthrough against the canonical repository with real-world data. Tab order and startup selection, Review chart titles and resize behavior, History navigation and rollover, existing and empty dates, future-date blocking, and unsaved-change protection passed. This focused polish did not change scoring, storage, reports, exports, or the project's privacy boundary.
 
 ## Upcoming Iterations
 
-### Iteration 007.2: Reporting & Analysis
+### Iteration 007.2: Reporting & Analysis - Completed
 
-Planned refinements for a focused future design and implementation iteration:
+Delivered:
 
-- Create an analysis-ready Excel workbook as a separate export from the human-readable clinician report.
-- Organize the workbook into normalized worksheets for **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, and **Metadata**.
-- Keep one logical record per row, with stable identifiers, ISO-formatted dates, consistent field names, and documented identifiers and relationships between worksheets so each dataset can be analyzed independently.
-- Consider an optional **Daily Summary** worksheet as a derived convenience view, including yes/no columns for common treatment-event types where useful. Normalized **Treatment Events** records remain the source of truth.
-- Preserve complete user-authored journal text in clinician reports. Do not truncate or abbreviate the user's own words.
-- Restore a fuller **How to Read This Report** explanation in the clinician report. A concise explanation may remain as a reminder, but it should not be the only guidance.
-- Explain the difference between **Daily Severity Score** and **14-Day Symptom Frequency Score**, including how entry coverage and missing check-ins affect what can be concluded.
-- Revisit clinician-report section names and ordering in a future design workshop before implementation. The final naming and flow remain intentionally undecided.
-- Avoid merged cells, decorative blank rows, and report-only presentation that obscures the workbook's underlying data.
-- Keep all current scoring, database, report, and export behavior intact.
-- Do not perform major data model changes.
-- Preserve support for multiple legitimate treatment events on the same date through an explicit “Add another event” action.
+- Added a separate analysis-ready Excel export with normalized **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, and **Metadata** worksheets.
+- Added a derived **Daily Summary** convenience worksheet while keeping the normalized worksheets authoritative.
+- Used one logical record per row, snake_case field names, ISO dates, stable database-backed or deterministic export identifiers, and documented cross-sheet relationships without merged cells or decorative blank rows.
+- Preserved the existing combined CSV/XLSX export for backward compatibility.
+- Moved a fuller **How to Read This Report** explanation to the beginning of the clinician report and clarified Daily Severity Score, 14-Day Symptom Frequency Score, coverage, and missing check-ins.
+- Adopted the compact section flow **Recorded Period Overview**, **Recorded Symptom Trends**, **Treatment Context**, **Journal and Event Context**, and **Conversation Starters**.
+- Removed journal-row and character limits. All user-authored notes in the selected period are included verbatim; report length may grow when the recorded narrative requires it.
+- Preserved scoring, schema, database routing, legacy PHQ-9 compatibility, and multiple legitimate same-day treatment events.
+- Added focused workbook, full-journal, and portable database routing/persistence/reset tests. All 40 automated tests pass with synthetic data.
+- Generated and visually inspected a four-page synthetic clinician report. The actual Windows portable ZIP build remains pending because PyInstaller and Inno Setup were unavailable; the icon remains a deferred packaging-validation issue.
+
+### Future Data Portability & Recovery
+
+Tentative concept; no iteration number is locked:
+
+- Prepare a clean Travel Mode database that contains no historical records.
+- Export only records created in that travel database and transactionally append them into an authoritative home database after validating schema, record identity, duplicates, and conflicts.
+- After a confirmed import, clear the travel database, create a fresh blank database, and verify that it contains zero assessments, notes, and treatment events.
+- Do not implement this as whole-database swapping or silent overwrite behavior.
+
+### Future LAN Sharing
+
+Tentative concept; no iteration number is locked:
+
+- Keep one authoritative database local to a designated host.
+- Let LAN clients communicate with an authenticated host/service that is solely responsible for SQLite access.
+- Do not open the SQLite file directly over a Windows network share.
+- Preserve the local-only boundary: no cloud relay, public Internet service, or automatic external synchronization.
 
 ### Iteration 008: Micro-UX & Accessibility
 

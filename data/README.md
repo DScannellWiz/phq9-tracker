@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-06-20
+
 # Private Data Directory
 
 Store real local PHQ-9 databases here.

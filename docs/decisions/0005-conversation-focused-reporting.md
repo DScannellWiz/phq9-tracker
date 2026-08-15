@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 # ADR 0005: Conversation-Focused Reporting
 
 ## Status
@@ -10,7 +13,7 @@ Earlier clinician reports accumulated repeated raw tables and detail that made t
 
 ## Decision
 
-Make the primary clinician report a compact, local conversation aid focused on overall patterns, symptom highlights, timeline context, treatment-cycle observations, entry coverage, and neutral discussion prompts. Keep detailed raw records available through CSV/XLSX exports instead of repeating them throughout the PDF.
+Make the primary clinician report a compact, local conversation aid focused on scoring context, overall patterns, symptom highlights, treatment context, complete user-authored journal entries, entry coverage, and neutral discussion prompts. Keep detailed raw records available through CSV/XLSX exports instead of repeating them throughout the PDF.
 
 ## Rationale
 
@@ -22,10 +25,11 @@ A concise report is easier to use during a limited clinical conversation. Separa
 - Detailed exports remain part of the product, not an optional substitute for preserved raw information.
 - Report length and rendered layout require validation with synthetic data.
 - The report supports discussion but does not diagnose, recommend treatment, or replace professional judgment.
+- Compactness must not truncate or summarize user-authored journal text. Reports may grow when narrative length requires it.
+- The separate analysis workbook uses normalized records and documented relationships; its derived Daily Summary is a convenience view, not the source of truth.
 
-## Future Considerations
+## Iteration 007.2 Implementation
 
-- A planned analysis-ready workbook would use separate normalized **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, and **Metadata** worksheets, with one logical record per row, stable identifiers, and documented relationships.
-- An optional **Daily Summary** worksheet may be added as a derived convenience view, including common treatment-event yes/no columns where useful, while normalized **Treatment Events** records remain the source of truth.
-- The clinician report should restore a fuller **How to Read This Report** section that explains **Daily Severity Score**, **14-Day Symptom Frequency Score**, and the role of entry coverage and missing check-ins. A concise explanation may remain as a quick reminder, but should not be the only guidance.
-- Final clinician-report section names and ordering remain intentionally undecided pending a future design workshop and usability testing.
+- The analysis-ready workbook uses **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, **Metadata**, and a derived **Daily Summary**.
+- The clinician report begins with **How to Read This Report**, then uses **Recorded Period Overview**, **Recorded Symptom Trends**, **Treatment Context**, **Journal and Event Context**, and **Conversation Starters**.
+- The early explanation distinguishes **Daily Severity Score** from **14-Day Symptom Frequency Score** and explicitly addresses coverage and missing check-ins.

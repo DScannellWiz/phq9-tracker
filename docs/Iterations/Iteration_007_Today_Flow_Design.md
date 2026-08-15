@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-01
+
 # Iteration 007: Today Flow Design
 
 ## Objectives

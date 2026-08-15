@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 # Development Journal
 
 This journal records the human context behind significant product and engineering choices. Formal narrative capture begins around Iteration 007; the earlier entries below are a concise reconstruction from surviving documentation rather than contemporaneous notes.
@@ -112,6 +115,32 @@ Reviewing Iteration 007.1 with synthetic data showed that the application now fe
 ### Deliberate deferral
 
 These refinements were deliberately assigned to Iteration 007.2 and Iteration 008 rather than being rushed into the focused Iteration 007.1 polish scope. This keeps the current iteration observable and contained while preserving the newly agreed reporting, analysis, and accessibility needs for deliberate design and validation.
+
+## August 15, 2026: Iteration 007.2 Reporting, Analysis, and Portable Validation
+
+### Context
+
+The clinician report and spreadsheet export had diverging purposes. The report needed to support a focused conversation without discarding the user's own narrative, while independent analysis needed normalized, machine-friendly records rather than a wide presentation sheet. An immediate Florida use case also required proof that portable mode could start from a blank local database without carrying historical PHI.
+
+### Decisions
+
+- Keep the existing combined CSV/XLSX export unchanged and add a separate normalized analysis workbook.
+- Treat database-backed assessment and event IDs as stable within an application database, and use deterministic day and item identifiers for export-only relationships. Avoid a schema migration in this iteration.
+- Keep **Daily Summary** explicitly derived. The normalized event rows remain authoritative so two legitimate same-day events are never collapsed into one source record.
+- Put **How to Read This Report** first, followed by **Recorded Period Overview**, **Recorded Symptom Trends**, **Treatment Context**, **Journal and Event Context**, and **Conversation Starters**.
+- Include every selected-period journal entry in full. Compactness is a normal-case design goal, not permission to truncate primary-source narrative.
+- Validate the Florida path with a blank portable database and synthetic records only. Do not use or package the production database.
+- Defer Travel Mode ingestion and LAN sharing. A future travel workflow should append validated travel-created records into an authoritative home database and verify a secure clear. Future LAN clients should use an authoritative host/service rather than opening SQLite over a network share.
+
+### Validation and consequences
+
+All 40 automated tests passed with isolated synthetic databases. The normalized workbook passed structural and relationship checks, including two legitimate same-day therapy events. A four-page synthetic clinician report was extracted, rendered, and visually inspected; long notes, special characters, section transitions, tables, charts, footers, and page numbers remained readable.
+
+Portable path selection, synthetic persistence, and pristine reinitialization passed at the source level. The actual Windows ZIP could not be built because PyInstaller was unavailable and an attempted workspace-only download stalled; Inno Setup was also unavailable. Icon references were verified in source and packaging configuration, but packaged icon behavior remains deferred rather than expanding this iteration.
+
+The final source-GUI smoke attempt could not create a window because the available Python runtime lacked a usable Tcl/Tk `init.tcl`. Automated validation remains green, but interactive GUI behavior is not claimed from this environment.
+
+No scoring formulas, database schema, production records, or privacy boundaries changed.
 
 ## Ongoing Journal Practice
 

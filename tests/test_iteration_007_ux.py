@@ -87,7 +87,12 @@ class Iteration007ReportTests(unittest.TestCase):
             phq_items = [offset % 2, 1, 1 if offset >= 42 else 0, 1, 0, 0, 1, 0, 0]
             gad_items = [1, offset % 2, 1, 1 if offset >= 45 else 0, 0, 0, 0]
             has_note = offset in {5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}
-            note = "Synthetic context with enough detail to exercise wrapping in the compact timeline table." if has_note else ""
+            note = (
+                "Synthetic context with enough detail to exercise wrapping in the compact timeline table. "
+                "This sentence appears beyond the former truncation boundary and must remain visible."
+                if has_note
+                else ""
+            )
             app.upsert_entry(day, phq_items, notes=note, note_tag="Sleep")
             app.upsert_assessment_entry("gad7", day, gad_items, notes=note, note_tag="Sleep")
         app.add_event("2026-01-10", "Ketamine infusion", "Synthetic infusion")
@@ -100,11 +105,15 @@ class Iteration007ReportTests(unittest.TestCase):
 
         reader = PdfReader(str(pdf_path))
         report_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        normalized_report_text = " ".join(report_text.split())
         self.assertGreaterEqual(len(reader.pages), 2)
-        self.assertLessEqual(len(reader.pages), 4)
-        self.assertIn("Period at a Glance", report_text)
-        self.assertIn("Treatment-Cycle Observations", report_text)
-        self.assertIn("Possible topics for conversation", report_text)
+        self.assertIn("How to Read This Report", report_text)
+        self.assertIn("Recorded Period Overview", report_text)
+        self.assertIn("Treatment Context", report_text)
+        self.assertIn("Conversation Starters", report_text)
+        self.assertIn("former truncation boundary", normalized_report_text)
+        self.assertIn("must remain visible", normalized_report_text)
+        self.assertIn("missing information", report_text)
         self.assertNotIn("Most Recent 14-Day Symptom Responses", report_text)
         self.assertNotIn("Recent Symptom Detail", report_text)
         self.assertNotIn("Ketamine Response Review", report_text)

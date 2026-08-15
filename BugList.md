@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 BUG: Report generation dependency detection
 
 Status: Improved in Iteration 007; installed/portable validation pending
@@ -80,7 +83,7 @@ Fix:
 
 Application Branding
 
-Status: Open
+Status: Open; wiring verified in Iteration 007.2, packaged behavior deferred
 
 Description:
 Executable and running application do not consistently use the Mental Health Tracker application icon.
@@ -93,6 +96,12 @@ Expected:
 
 Priority:
 Low
+
+Iteration 007.2 validation note:
+
+- Source code calls `iconbitmap` with `packaging\assets\PHQ9_Tracker.ico`.
+- PyInstaller embeds the same asset through `--icon`; Inno Setup and installed shortcuts also reference it.
+- Final executable, running taskbar, portable, installer, Start Menu, and desktop icon behavior was not validated because PyInstaller and Inno Setup were unavailable. This remains a packaging issue and did not expand the reporting iteration.
 
 ---
 
@@ -169,7 +178,7 @@ Resolution:
 
 - Replaced the raw-detail-heavy primary PDF with a compact conversation-focused report.
 - Removed both redundant PHQ-9 raw response-table headings from the primary PDF; detailed records remain in data exports.
-- Added a rendered-report regression test that confirms the old duplicate sections are absent and the report remains within the two-to-four-page target.
+- Added a rendered-report regression test that confirms the old duplicate sections are absent. Typical reports remain compact, while narrative-heavy reports may grow rather than truncate user text.
 
 ---
 
@@ -210,9 +219,9 @@ Validation:
 
 ---
 
-## Future enhancement: Reporting clarity and chart value discoverability
+## Future enhancement: Chart value discoverability
 
-Status: Planned for Iterations 007.2 and 008; not classified as a defect
+Status: Reporting clarity completed in Iteration 007.2; chart work remains planned for Iteration 008
 
-- Restore a fuller clinician-report scoring explanation so users and clinicians can understand Daily Severity Score, 14-Day Symptom Frequency Score, and the role of coverage and missing check-ins.
+- Iteration 007.2 restored the fuller clinician-report explanation and preserved complete selected-period journal text.
 - Make chart point dates and exact scores directly discoverable through click or hover callouts as an accessibility and readability improvement.

@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-08
+
 # Product Principles
 
 These principles define the stable philosophical core of the Mental Health Tracker. They guide product language, workflows, reports, and future technical decisions.

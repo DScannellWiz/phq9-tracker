@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-08
+
 # Iteration 007.1: Navigation and Review Polish
 
 ## Status

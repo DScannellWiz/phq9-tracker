@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 # Project Structure
 
 ```text
@@ -12,3 +15,5 @@ sample_data/          Fake/sample data only
 ```
 
 Real user data should stay out of GitHub. The repository keeps placeholder files so the intended folders are visible without committing private contents.
+
+The `exports/` directory may contain both the backward-compatible combined export and the separate normalized analysis workbook. Both are private runtime artifacts and are ignored by Git.

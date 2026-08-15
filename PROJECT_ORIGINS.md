@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-01
+
 # Project Origins
 
 The Mental Health Tracker began with a practical human problem: it can be difficult to recall symptoms accurately across the time between appointments. That gap creates a kind of **tyranny of temporal distance**. The present can overshadow the recent past, important details can fade, and a person may arrive at a clinical conversation without a clear account of what happened between visits.

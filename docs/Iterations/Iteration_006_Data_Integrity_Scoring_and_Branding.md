@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-07-18
+
 # Iteration 006: Data Integrity, Scoring Clarity, and Application Branding
 
 ## Objectives

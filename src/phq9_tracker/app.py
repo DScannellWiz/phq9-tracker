@@ -9,6 +9,7 @@ from contextlib import closing
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from xml.sax.saxutils import escape
 from tkinter import (
     BOTH,
     BOTTOM,
@@ -102,6 +103,7 @@ BUNDLED_PYTHON = Path(os.environ["PHQ9_TRACKER_BUNDLED_PYTHON"]) if os.environ.g
 DISCLAIMER = "This report is for discussion with a licensed clinician and is not a diagnosis."
 DAILY_SCORE_LABEL = "Daily Severity Score"
 FREQUENCY_SCORE_LABEL = "14-Day Symptom Frequency Score"
+ANALYSIS_WORKBOOK_SCHEMA_VERSION = "1.0"
 SCORING_EXPLANATION = """Mental Health Tracker calculates two related but different measurements.
 
 Daily Severity Score
@@ -1152,6 +1154,198 @@ def export_entries(path: str) -> None:
             writer.writerows(data)
 
 
+def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
+    """Build normalized, analysis-ready records without changing the database schema."""
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        assessments = conn.execute(
+            """
+            SELECT id, assessment_id, entry_date, item1, item2, item3, item4, item5,
+                   item6, item7, item8, item9, total, severity, COALESCE(notes, '') AS notes,
+                   COALESCE(note_tag, '') AS note_tag, source, created_at, updated_at
+            FROM assessment_entries
+            ORDER BY entry_date, assessment_id, id
+            """
+        ).fetchall()
+        events = conn.execute(
+            """
+            SELECT id, event_date, event_type, COALESCE(description, '') AS description, created_at
+            FROM treatment_events
+            ORDER BY event_date, id
+            """
+        ).fetchall()
+
+    daily_assessments: list[dict[str, object]] = []
+    item_responses: list[dict[str, object]] = []
+    notes_by_date: dict[str, dict[str, object]] = {}
+    assessment_ids_by_date: dict[str, list[str]] = {}
+    assessment_summary_by_date: dict[str, dict[str, object]] = {}
+
+    for row in assessments:
+        definition = ASSESSMENTS[row["assessment_id"]]
+        assessment_record_id = f"assessment:{row['id']}"
+        daily_record_id = f"day:{row['entry_date']}"
+        daily_assessments.append(
+            {
+                "assessment_record_id": assessment_record_id,
+                "assessment_entry_id": row["id"],
+                "daily_record_id": daily_record_id,
+                "entry_date": row["entry_date"],
+                "assessment_id": row["assessment_id"],
+                "assessment_name": definition.display_name,
+                "daily_severity_score": row["total"],
+                "severity_category": row["severity"],
+                "source": row["source"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+        )
+        assessment_ids_by_date.setdefault(row["entry_date"], []).append(assessment_record_id)
+        assessment_summary_by_date.setdefault(row["entry_date"], {})[f"{row['assessment_id']}_daily_severity_score"] = row["total"]
+        assessment_summary_by_date[row["entry_date"]][f"{row['assessment_id']}_severity_category"] = row["severity"]
+        for item_number, item_label in enumerate(definition.item_labels, start=1):
+            response_value = row[f"item{item_number}"]
+            item_responses.append(
+                {
+                    "item_response_record_id": f"{assessment_record_id}:item:{item_number}",
+                    "assessment_record_id": assessment_record_id,
+                    "assessment_entry_id": row["id"],
+                    "daily_record_id": daily_record_id,
+                    "entry_date": row["entry_date"],
+                    "assessment_id": row["assessment_id"],
+                    "item_number": item_number,
+                    "item_label": item_label,
+                    "response_value": response_value,
+                    "symptom_present": bool(response_value > 0),
+                }
+            )
+        if (row["notes"] or row["note_tag"]) and row["entry_date"] not in notes_by_date:
+            notes_by_date[row["entry_date"]] = {
+                "note_record_id": f"note:{row['entry_date']}",
+                "daily_record_id": daily_record_id,
+                "entry_date": row["entry_date"],
+                "note_tag": row["note_tag"],
+                "note_text": row["notes"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+
+    treatment_events = []
+    event_ids_by_date: dict[str, list[str]] = {}
+    event_types_by_date: dict[str, list[str]] = {}
+    for row in events:
+        event_record_id = f"event:{row['id']}"
+        normalized_type = normalize_event_type(row["event_type"])
+        treatment_events.append(
+            {
+                "treatment_event_record_id": event_record_id,
+                "treatment_event_id": row["id"],
+                "daily_record_id": f"day:{row['event_date']}",
+                "event_date": row["event_date"],
+                "event_type": row["event_type"],
+                "normalized_event_type": normalized_type,
+                "description": row["description"],
+                "created_at": row["created_at"],
+            }
+        )
+        event_ids_by_date.setdefault(row["event_date"], []).append(event_record_id)
+        event_types_by_date.setdefault(row["event_date"], []).append(normalized_type)
+
+    ketamine_anchors: list[tuple[str, str]] = []
+    for row in treatment_events:
+        if row["normalized_event_type"] == "Ketamine" and not any(anchor[0] == row["event_date"] for anchor in ketamine_anchors):
+            ketamine_anchors.append((str(row["event_date"]), str(row["treatment_event_record_id"])))
+    all_dates = sorted(set(assessment_ids_by_date) | set(notes_by_date) | set(event_ids_by_date))
+    last_recorded_date = all_dates[-1] if all_dates else None
+    treatment_cycle_rows = []
+    for index, (anchor_date, anchor_event_id) in enumerate(ketamine_anchors):
+        next_anchor_date = ketamine_anchors[index + 1][0] if index + 1 < len(ketamine_anchors) else None
+        cycle_end = (
+            (datetime.fromisoformat(next_anchor_date).date() - timedelta(days=1)).isoformat()
+            if next_anchor_date
+            else last_recorded_date or anchor_date
+        )
+        treatment_cycle_rows.append(
+            {
+                "treatment_cycle_record_id": f"cycle:{anchor_date}",
+                "anchor_treatment_event_record_id": anchor_event_id,
+                "cycle_number": index + 1,
+                "cycle_start_date": anchor_date,
+                "cycle_end_date": cycle_end,
+                "is_current_cycle": index == len(ketamine_anchors) - 1,
+            }
+        )
+
+    daily_summary = []
+    for entry_date in all_dates:
+        summary = assessment_summary_by_date.get(entry_date, {})
+        event_types = event_types_by_date.get(entry_date, [])
+        daily_summary.append(
+            {
+                "daily_record_id": f"day:{entry_date}",
+                "entry_date": entry_date,
+                "assessment_record_ids": "|".join(assessment_ids_by_date.get(entry_date, [])),
+                "phq9_daily_severity_score": summary.get("phq9_daily_severity_score", ""),
+                "phq9_severity_category": summary.get("phq9_severity_category", ""),
+                "gad7_daily_severity_score": summary.get("gad7_daily_severity_score", ""),
+                "gad7_severity_category": summary.get("gad7_severity_category", ""),
+                "note_record_id": notes_by_date.get(entry_date, {}).get("note_record_id", ""),
+                "treatment_event_record_ids": "|".join(event_ids_by_date.get(entry_date, [])),
+                "treatment_event_count": len(event_ids_by_date.get(entry_date, [])),
+                "ketamine_recorded": "Ketamine" in event_types,
+                "therapy_recorded": "Therapy" in event_types,
+                "medication_change_recorded": any(event_type.startswith("Medication") for event_type in event_types),
+            }
+        )
+
+    metadata = [
+        {"metadata_key": "workbook_schema_version", "metadata_value": ANALYSIS_WORKBOOK_SCHEMA_VERSION, "description": "Version of this normalized export layout."},
+        {"metadata_key": "generated_at", "metadata_value": datetime.now().astimezone().isoformat(timespec="seconds"), "description": "Local generation timestamp in ISO 8601 format."},
+        {"metadata_key": "application", "metadata_value": "Mental Health Tracker", "description": "Application that generated the workbook."},
+        {"metadata_key": "date_format", "metadata_value": "YYYY-MM-DD", "description": "Calendar-date format used in all date fields."},
+        {"metadata_key": "daily_relationship", "metadata_value": "daily_record_id", "description": "Join records across worksheets by the deterministic day:YYYY-MM-DD identifier."},
+        {"metadata_key": "assessment_relationship", "metadata_value": "assessment_record_id", "description": "Join Item Responses to Daily Assessments by assessment_record_id."},
+        {"metadata_key": "event_relationship", "metadata_value": "treatment_event_record_id", "description": "Treatment Events retain the stable SQLite event ID as event:<id>."},
+        {"metadata_key": "cycle_relationship", "metadata_value": "anchor_treatment_event_record_id", "description": "Treatment Cycles reference the first recorded ketamine event on each anchor date."},
+        {"metadata_key": "daily_severity_score", "metadata_value": "sum of item responses on one check-in", "description": "Measures recorded symptom severity for a single assessment date."},
+        {"metadata_key": "14_day_frequency_score", "metadata_value": "derived by calendar window", "description": "Counts symptom-present days and is intentionally not repeated as a daily raw field."},
+        {"metadata_key": "missing_checkins", "metadata_value": "missing information", "description": "A day without a check-in is not evidence that symptoms were absent."},
+        {"metadata_key": "daily_summary_authority", "metadata_value": "derived", "description": "Daily Summary is a convenience view; normalized worksheets remain authoritative."},
+        {"metadata_key": "privacy_notice", "metadata_value": "local sensitive data", "description": "This workbook may contain PHI. Store and share it deliberately."},
+    ]
+
+    return {
+        "Daily Assessments": daily_assessments,
+        "Item Responses": item_responses,
+        "Notes": list(notes_by_date.values()),
+        "Treatment Events": treatment_events,
+        "Treatment Cycles": treatment_cycle_rows,
+        "Metadata": metadata,
+        "Daily Summary": daily_summary,
+    }
+
+
+def export_analysis_workbook(path: str) -> None:
+    """Write the separate normalized XLSX export used for external analysis."""
+    if not path.lower().endswith(".xlsx"):
+        raise ValueError("The analysis-ready export must be saved as an .xlsx workbook.")
+    if pd is None:
+        raise RuntimeError("Analysis-ready Excel export requires pandas/openpyxl.")
+    sheet_columns = {
+        "Daily Assessments": ["assessment_record_id", "assessment_entry_id", "daily_record_id", "entry_date", "assessment_id", "assessment_name", "daily_severity_score", "severity_category", "source", "created_at", "updated_at"],
+        "Item Responses": ["item_response_record_id", "assessment_record_id", "assessment_entry_id", "daily_record_id", "entry_date", "assessment_id", "item_number", "item_label", "response_value", "symptom_present"],
+        "Notes": ["note_record_id", "daily_record_id", "entry_date", "note_tag", "note_text", "created_at", "updated_at"],
+        "Treatment Events": ["treatment_event_record_id", "treatment_event_id", "daily_record_id", "event_date", "event_type", "normalized_event_type", "description", "created_at"],
+        "Treatment Cycles": ["treatment_cycle_record_id", "anchor_treatment_event_record_id", "cycle_number", "cycle_start_date", "cycle_end_date", "is_current_cycle"],
+        "Metadata": ["metadata_key", "metadata_value", "description"],
+        "Daily Summary": ["daily_record_id", "entry_date", "assessment_record_ids", "phq9_daily_severity_score", "phq9_severity_category", "gad7_daily_severity_score", "gad7_severity_category", "note_record_id", "treatment_event_record_ids", "treatment_event_count", "ketamine_recorded", "therapy_recorded", "medication_change_recorded"],
+    }
+    workbook_data = _analysis_workbook_data()
+    with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        for sheet_name, columns in sheet_columns.items():
+            pd.DataFrame(workbook_data[sheet_name], columns=columns).to_excel(writer, index=False, sheet_name=sheet_name)
+
+
 def python_supports_modules(python_path: Path, modules: tuple[str, ...]) -> bool:
     if not python_path.exists():
         return False
@@ -1224,7 +1418,8 @@ def add_pdf_table(
             wrapped_row = []
             for col_idx, value in enumerate(row):
                 if row_idx > 0 and col_idx in wrap_columns:
-                    wrapped_row.append(Paragraph(str(value), styles["BodyText"]))
+                    safe_value = escape(str(value)).replace("\n", "<br/>")
+                    wrapped_row.append(Paragraph(safe_value, styles["BodyText"]))
                 else:
                     wrapped_row.append(str(value))
             wrapped.append(wrapped_row)
@@ -1513,7 +1708,27 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         Paragraph(f"Date range: {start} to {end}", styles["Normal"]),
         Paragraph(DISCLAIMER, styles["BodyText"]),
         Spacer(1, 0.18 * inch),
-        Paragraph("Period at a Glance", styles["Heading1"]),
+        Paragraph("How to Read This Report", styles["Heading1"]),
+        Paragraph(
+            "<b>Daily Severity Score:</b> the item responses from one PHQ-9 or GAD-7 check-in are added together. "
+            "It describes the severity recorded on that particular day.",
+            styles["BodyText"],
+        ),
+        Paragraph(
+            "<b>14-Day Symptom Frequency Score:</b> for each item, the report counts how many of the 14 calendar days "
+            "had a recorded response above zero. A response of 1 and a response of 3 each count as one symptom-present "
+            "day, even though they contribute differently to the Daily Severity Score. Item counts are converted to "
+            "0 points for 0 days, 1 point for 1-6 days, 2 points for 7-11 days, or 3 points for 12-14 days, then summed.",
+            styles["BodyText"],
+        ),
+        Paragraph(
+            "<b>Coverage and missing check-ins:</b> coverage shows how many daily check-ins were recorded in a calendar "
+            "window. A day without a check-in contributes no recorded symptom-present response to the frequency score, "
+            "but it is missing information, not evidence that the symptom was absent. Interpret comparisons alongside coverage.",
+            styles["BodyText"],
+        ),
+        Spacer(1, 0.12 * inch),
+        Paragraph("Recorded Period Overview", styles["Heading1"]),
     ]
     glance_rows = [["Assessment", "Recorded check-ins", "Most recent score", "Most recent date"]]
     for assessment_id, assessment_entries in (("phq9", entries), ("gad7", gad_entries)):
@@ -1547,7 +1762,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
     )
 
     story.append(PageBreak())
-    story.append(Paragraph("Recorded Trends", styles["Heading1"]))
+    story.append(Paragraph("Recorded Symptom Trends", styles["Heading1"]))
     add_chart(story, str(phq_chart), "PHQ-9 scores across the selected period", width=6.1 * inch)
     add_chart(story, str(gad_chart), "GAD-7 scores across the selected period", width=6.1 * inch)
     q9_values = [row.items[8] for row in entries]
@@ -1563,7 +1778,7 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         )
 
     story.append(PageBreak())
-    story.append(Paragraph("Treatment-Cycle Observations", styles["Heading1"]))
+    story.append(Paragraph("Treatment Context", styles["Heading1"]))
     story.append(
         Paragraph(
             "Cycles are bounded by recorded ketamine infusion dates. These observations describe timing and recorded scores; they do not determine whether treatment caused a change.",
@@ -1605,22 +1820,22 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         if row.notes.strip() and note_key not in seen_notes:
             seen_notes.add(note_key)
             timeline.append((row.entry_date, f"Note{f' - {row.note_tag}' if row.note_tag else ''}", row.notes.strip()))
-    timeline = sorted(timeline, key=lambda item: (item[0], item[1]))[-5:]
+    timeline = sorted(timeline, key=lambda item: (item[0], item[1]))
 
     story.append(PageBreak())
-    story.append(Paragraph("Timeline Highlights and Discussion Prompts", styles["Heading1"]))
+    story.append(Paragraph("Journal and Event Context", styles["Heading1"]))
     if timeline:
         add_pdf_table(
             story,
-            "Recent Context",
+            "Recorded Context",
             [["Date", "Type", "Recorded context"]]
-            + [[event_date, event_type, text[:140] + ("..." if len(text) > 140 else "")] for event_date, event_type, text in timeline],
+            + [[event_date, event_type, text] for event_date, event_type, text in timeline],
             col_widths=[0.95 * inch, 1.45 * inch, 4.3 * inch],
             wrap_columns={1, 2},
         )
     else:
         story.append(Paragraph("No notes or treatment events were recorded in the selected period.", styles["BodyText"]))
-    story.append(Paragraph("Possible topics for conversation", styles["Heading2"]))
+    story.append(Paragraph("Conversation Starters", styles["Heading2"]))
     prompts = [
         "Do the recorded symptom patterns match what you remember about this period?",
         "Were there particular days, events, or treatment dates that would help explain the recorded context?",
@@ -1630,16 +1845,6 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         prompts.insert(0, "A PHQ-9 self-harm response was recorded above zero; consider discussing when it occurred and whether support is needed now.")
     for prompt in prompts[:4]:
         story.append(Paragraph(f"- {prompt}", styles["BodyText"]))
-    story.append(Paragraph("How to read this summary", styles["Heading2"]))
-    story.append(
-        Paragraph(
-            "Daily Severity Scores sum the item responses recorded on one check-in. Fourteen-day comparisons describe how often symptoms were recorded as present. "
-            "Coverage is shown because missing check-ins limit what can be concluded.",
-            styles["BodyText"],
-        )
-    )
-    story.append(Spacer(1, 0.12 * inch))
-    story.append(Paragraph(DISCLAIMER, styles["BodyText"]))
     doc.build(story, onFirstPage=on_report_page, onLaterPages=on_report_page)
 
 
@@ -1743,6 +1948,7 @@ class PHQ9App(Tk):
         file_menu = Menu(menu, tearoff=0)
         file_menu.add_command(label="Import spreadsheet...", command=self.import_file)
         file_menu.add_command(label="Export entries...", command=self.export_file)
+        file_menu.add_command(label="Export analysis workbook...", command=self.export_analysis_file)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.destroy)
         menu.add_cascade(label="File", menu=file_menu)
@@ -1793,6 +1999,7 @@ class PHQ9App(Tk):
         top = Frame(self.dashboard, bg="#F8FAFC")
         top.pack(fill="x", pady=(0, 10))
         Label(top, text="Review", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 16, "bold")).pack(side=LEFT)
+        Button(top, text="Analysis Workbook", command=self.export_analysis_file).pack(side=RIGHT, padx=(6, 0))
         Button(top, text="Exports", command=self.export_file).pack(side=RIGHT, padx=(6, 0))
         Button(top, text="Reports", command=lambda: self.notebook.select(self.report_tab)).pack(side=RIGHT, padx=(6, 0))
         Button(top, text="Import Spreadsheet", command=self.import_file).pack(side=RIGHT, padx=(6, 0))
@@ -2516,6 +2723,25 @@ class PHQ9App(Tk):
         except Exception as exc:
             messagebox.showerror("Export failed", str(exc))
 
+    def export_analysis_file(self):
+        path = filedialog.asksaveasfilename(
+            title="Export analysis-ready workbook",
+            initialdir=str(EXPORTS_DIR),
+            initialfile=f"Mental_Health_Tracker_Analysis_{date.today().isoformat()}.xlsx",
+            defaultextension=".xlsx",
+            filetypes=[("Excel workbook", "*.xlsx")],
+        )
+        if not path:
+            return
+        try:
+            if pd is None:
+                run_bundled_cli(["--analysis-export", path], ("pandas", "openpyxl"))
+            else:
+                export_analysis_workbook(path)
+            messagebox.showinfo("Analysis export complete", f"Saved normalized workbook to:\n{path}")
+        except Exception as exc:
+            messagebox.showerror("Analysis export failed", str(exc))
+
     def save_entry(self):
         entry_date = parse_date(self.date_var.get())
         if not entry_date:
@@ -2630,6 +2856,7 @@ def main():
     parser.add_argument("--report-end", help="Generate a report ending on YYYY-MM-DD.")
     parser.add_argument("--report-pdf", help="PDF output path for command-line report generation.")
     parser.add_argument("--export", help="Export entries to CSV or XLSX, then exit.")
+    parser.add_argument("--analysis-export", help="Export a normalized analysis-ready XLSX workbook, then exit.")
     args = parser.parse_args()
 
     init_db()
@@ -2643,7 +2870,10 @@ def main():
     if args.export:
         export_entries(args.export)
         print(f"Saved export to {args.export}")
-    has_cli_action = bool(args.import_path or args.report_pdf or args.export)
+    if args.analysis_export:
+        export_analysis_workbook(args.analysis_export)
+        print(f"Saved analysis workbook to {args.analysis_export}")
+    has_cli_action = bool(args.import_path or args.report_pdf or args.export or args.analysis_export)
     if args.launch or not has_cli_action:
         PHQ9App().mainloop()
 

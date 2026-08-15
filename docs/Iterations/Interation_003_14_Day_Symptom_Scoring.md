@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-06-28
+
 Project:
 
 PHQ-9 Tracker

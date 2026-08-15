@@ -1,3 +1,6 @@
+Current as of: 2026-08-15
+Last substantive update: 2026-08-15
+
 # Mental Health Tracker
 
 A privacy-first desktop application for tracking standardized mental health assessments over time.
@@ -16,8 +19,9 @@ The project began as a PHQ-9 tracker and now supports a reusable multi-assessmen
 - An accessible How Scoring Works explanation in the app and clinician report.
 - SQLite local storage under the project `data` folder during source runs.
 - A separate Review experience with concise, deterministic symptom summaries, recent charts, current/previous ketamine-cycle views, and long-term trends.
-- Two-to-four-page clinician discussion reports centered on overall patterns, symptom highlights, timeline context, treatment-cycle observations, and neutral conversation prompts.
-- CSV/XLSX exports with both assessments.
+- Compact clinician discussion reports centered on scoring context, recorded patterns, treatment context, complete user-authored journal text, and neutral conversation prompts. Reports expand as needed rather than truncating journal entries.
+- Backward-compatible CSV/XLSX exports with both assessments.
+- A separate normalized XLSX analysis workbook with Daily Assessments, Item Responses, Notes, Treatment Events, Treatment Cycles, Metadata, and a derived Daily Summary.
 - Treatment event tracking.
 - Automated tests for scoring, migration, exports, and report behavior where local dependencies are available.
 
@@ -40,13 +44,15 @@ For source runs, execute commands from the project root so the app can locate `d
 4. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Review information is intentionally kept out of Today's Check-In.
 5. Use **History / Manage Entries** to move one day at a time, edit existing records, or add another legitimate event to a day that already has records. Empty dates remain read-only and direct you back to Today's Check-In for new daily recording.
 6. Select any relevant event checkboxes in Today's Check-In, or use **Add Custom Event** for another event type.
-7. Generate clinician reports or exports when you want a local file to discuss with a care team.
+7. Generate a clinician report when you want a readable conversation aid. Use **Analysis Workbook** when you want normalized data for filtering, sorting, pivoting, or independent analysis.
 
 Daily check-ins intentionally do not copy or autofill previous responses. Each symptom should be considered independently to encourage mindful reflection and higher-quality recorded data.
 
 ## Privacy Philosophy
 
 This app is local-first. It does not intentionally upload assessment responses, notes, treatment events, databases, reports, or exports.
+
+Portable builds are designed to start with a blank database inside the extracted portable folder. Do not add an existing user database to a portable ZIP unless the user has made a separate, informed data-transfer decision.
 
 Private runtime data belongs in:
 
