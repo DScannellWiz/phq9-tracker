@@ -1,5 +1,4 @@
 import argparse
-import csv
 import os
 import sqlite3
 import subprocess
@@ -1058,102 +1057,6 @@ def upsert_daily_event(event_date: str, event_type: str, description: str = "") 
         return int(cursor.lastrowid)
 
 
-def export_entries(path: str) -> None:
-    phq_rows = fetch_assessment_entries("phq9")
-    gad_rows = fetch_assessment_entries("gad7")
-    score_14_day = calculate_14_day_symptom_frequency_score(phq_rows, 9, "phq9")
-    gad_14_day = calculate_14_day_symptom_frequency_score(gad_rows, 7, "gad7")
-    event_map: dict[str, set[str]] = {}
-    for _, event_date, event_type, _desc in fetch_events():
-        event_map.setdefault(event_date, set()).add(normalize_event_type(event_type))
-    phq_by_date = {row.entry_date: row for row in phq_rows}
-    gad_by_date = {row.entry_date: row for row in gad_rows}
-    all_dates = sorted(set(phq_by_date) | set(gad_by_date) | set(event_map))
-    data = []
-    for entry_date in all_dates:
-        phq = phq_by_date.get(entry_date)
-        gad = gad_by_date.get(entry_date)
-        event_types = event_map.get(entry_date, set())
-        notes = phq.notes if phq and phq.notes else gad.notes if gad else ""
-        tags = phq.note_tag if phq and phq.note_tag else gad.note_tag if gad else ""
-        record = {
-            "Date": entry_date,
-            "PHQ-9 Daily Severity Score": phq.total if phq else "",
-            "PHQ-9 Severity": phq.severity if phq else "",
-        }
-        for idx in range(1, 10):
-            record[f"PHQ-9 Item {idx}"] = phq.items[idx - 1] if phq else ""
-        record["Question 9 Score"] = phq.items[8] if phq else ""
-        record["GAD-7 Daily Severity Score"] = gad.total if gad else ""
-        record["GAD-7 Severity"] = gad.severity if gad else ""
-        for idx in range(1, 8):
-            record[f"GAD-7 Item {idx}"] = gad.items[idx - 1] if gad else ""
-        record["Daily Notes"] = notes
-        record["Tags"] = tags
-        record["Ketamine"] = "Yes" if "Ketamine" in event_types else "No"
-        record["Therapy"] = "Yes" if "Therapy" in event_types else "No"
-        record["Medication Change"] = "Yes" if any(event.startswith("Medication") for event in event_types) else "No"
-        record["Current PHQ-9 14-Day Symptom Frequency Score"] = score_14_day.total_score
-        record["Current PHQ-9 14-Day Severity"] = score_14_day.severity
-        record["Current GAD-7 14-Day Symptom Frequency Score"] = gad_14_day.total_score
-        record["Current GAD-7 14-Day Severity"] = gad_14_day.severity
-        data.append(record)
-    fieldnames = [
-        "Date",
-        "PHQ-9 Daily Severity Score",
-        "PHQ-9 Severity",
-        *(f"PHQ-9 Item {i}" for i in range(1, 10)),
-        "Question 9 Score",
-        "GAD-7 Daily Severity Score",
-        "GAD-7 Severity",
-        *(f"GAD-7 Item {i}" for i in range(1, 8)),
-        "Daily Notes",
-        "Tags",
-        "Ketamine",
-        "Therapy",
-        "Medication Change",
-        "Current PHQ-9 14-Day Symptom Frequency Score",
-        "Current PHQ-9 14-Day Severity",
-        "Current GAD-7 14-Day Symptom Frequency Score",
-        "Current GAD-7 14-Day Severity",
-    ]
-    if path.lower().endswith(".xlsx"):
-        if pd is None:
-            raise RuntimeError("Excel export requires pandas/openpyxl.")
-        with pd.ExcelWriter(path, engine="openpyxl") as writer:
-            pd.DataFrame(data, columns=fieldnames).to_excel(writer, index=False, sheet_name="Check-In Data Export")
-            score_rows = [
-                {"Assessment": "PHQ-9", "Metric": "Window start", "Value": score_14_day.start_date},
-                {"Assessment": "PHQ-9", "Metric": "Window end", "Value": score_14_day.end_date},
-                {"Assessment": "PHQ-9", "Metric": "Entries included", "Value": score_14_day.entries_included},
-                {"Assessment": "PHQ-9", "Metric": FREQUENCY_SCORE_LABEL, "Value": score_14_day.total_score},
-                {"Assessment": "PHQ-9", "Metric": "14-day severity", "Value": score_14_day.severity},
-                {"Assessment": "GAD-7", "Metric": "Window start", "Value": gad_14_day.start_date},
-                {"Assessment": "GAD-7", "Metric": "Window end", "Value": gad_14_day.end_date},
-                {"Assessment": "GAD-7", "Metric": "Entries included", "Value": gad_14_day.entries_included},
-                {"Assessment": "GAD-7", "Metric": FREQUENCY_SCORE_LABEL, "Value": gad_14_day.total_score},
-                {"Assessment": "GAD-7", "Metric": "14-day severity", "Value": gad_14_day.severity},
-                {"Assessment": "Both", "Metric": "Missing-day handling", "Value": "Missing calendar days count as no recorded symptom-present day."},
-            ]
-            for assessment_id, score in (("phq9", score_14_day), ("gad7", gad_14_day)):
-                name = ASSESSMENTS[assessment_id].display_name
-                for idx, item_score in enumerate(score.item_scores, start=1):
-                    score_rows.append(
-                        {
-                            "Assessment": name,
-                            "Metric": f"Item {idx} 14-Day Symptom Frequency Score",
-                            "Value": item_score,
-                            "Days present": score.item_counts[idx - 1],
-                        }
-                    )
-            pd.DataFrame(score_rows).to_excel(writer, index=False, sheet_name="14-Day Frequency Scores")
-    else:
-        with open(path, "w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(data)
-
-
 def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
     """Build normalized, analysis-ready records without changing the database schema."""
     with closing(sqlite3.connect(DB_PATH)) as conn:
@@ -1624,7 +1527,19 @@ def on_report_page(canvas, doc):
     canvas.restoreState()
 
 
-def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
+def available_report_date_range() -> tuple[str, str]:
+    """Return the full assessment-history range used by one-click PDF reports."""
+    dates = [
+        row.entry_date
+        for assessment_id in ASSESSMENT_ORDER
+        for row in fetch_assessment_entries(assessment_id)
+    ]
+    if not dates:
+        raise ValueError("No check-ins are available for a clinician report.")
+    return min(dates), max(dates)
+
+
+def generate_report(start: str, end: str, pdf_path: str) -> None:
     if colors is None or PILImage is None:
         raise RuntimeError("PDF export requires reportlab and Pillow.")
     entries = fetch_assessment_entries("phq9", start, end)
@@ -1643,39 +1558,6 @@ def generate_report(start: str, end: str, pdf_path: str, csv_path: str) -> None:
         *symptom_highlights("phq9", comparison_phq_entries, end, limit=2),
         *symptom_highlights("gad7", comparison_gad_entries, end, limit=2),
     ]
-
-    with open(csv_path, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["PHQ-9 Entries"])
-        writer.writerow(["Date", DAILY_SCORE_LABEL, "Severity", *(f"Item {i}" for i in range(1, 10)), "Question 9", "Notes", "Tag"])
-        for row in entries:
-            writer.writerow([row.entry_date, row.total, row.severity, *row.items, row.items[8], row.notes, row.note_tag])
-        writer.writerow([])
-        writer.writerow(["GAD-7 Entries"])
-        writer.writerow(["Date", DAILY_SCORE_LABEL, "Severity", *(f"Item {i}" for i in range(1, 8)), "Notes", "Tag"])
-        for row in gad_entries:
-            writer.writerow([row.entry_date, row.total, row.severity, *row.items, row.notes, row.note_tag])
-        writer.writerow([])
-        writer.writerow(["Treatment Events"])
-        writer.writerow(["Date", "Type", "Description"])
-        for _, event_date, event_type, description in events:
-            writer.writerow([event_date, event_type, description])
-        writer.writerow([])
-        writer.writerow(["Treatment Cycle Observations"])
-        writer.writerow(["Cycle", "Start", "End", "PHQ-9 entries", "Minimum", "Maximum", "Average"])
-        for cycle in cycles:
-            totals = [row.total for row in cycle.entries]
-            writer.writerow(
-                [
-                    cycle.label,
-                    cycle.start_date,
-                    cycle.end_date,
-                    len(totals),
-                    min(totals) if totals else "n/a",
-                    max(totals) if totals else "n/a",
-                    f"{sum(totals) / len(totals):.1f}" if totals else "n/a",
-                ]
-            )
 
     styles = getSampleStyleSheet()
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -1917,8 +1799,14 @@ PRIMARY_TAB_ORDER = (
     "Review",
     "History / Manage Entries",
     "Treatment Events",
-    "Clinician Report",
     "How Scoring Works",
+)
+
+REVIEW_ACTION_LABELS = (
+    "Refresh",
+    "Import Spreadsheet",
+    "Generate PDF",
+    "Analysis Workbook",
 )
 
 
@@ -1947,7 +1835,6 @@ class PHQ9App(Tk):
         menu = Menu(self)
         file_menu = Menu(menu, tearoff=0)
         file_menu.add_command(label="Import spreadsheet...", command=self.import_file)
-        file_menu.add_command(label="Export entries...", command=self.export_file)
         file_menu.add_command(label="Export analysis workbook...", command=self.export_analysis_file)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.destroy)
@@ -1973,7 +1860,6 @@ class PHQ9App(Tk):
         self.notebook.pack(fill=BOTH, expand=True, padx=12, pady=12)
         self.dashboard = Frame(self.notebook, bg="#F8FAFC")
         self.entry_tab = Frame(self.notebook, bg="#F8FAFC")
-        self.report_tab = Frame(self.notebook, bg="#F8FAFC")
         self.events_tab = Frame(self.notebook, bg="#F8FAFC")
         self.history_tab = Frame(self.notebook, bg="#F8FAFC")
         self.scoring_tab = Frame(self.notebook, bg="#F8FAFC")
@@ -1982,7 +1868,6 @@ class PHQ9App(Tk):
             "Review": self.dashboard,
             "History / Manage Entries": self.history_tab,
             "Treatment Events": self.events_tab,
-            "Clinician Report": self.report_tab,
             "How Scoring Works": self.scoring_tab,
         }
         for tab_name in PRIMARY_TAB_ORDER:
@@ -1991,7 +1876,6 @@ class PHQ9App(Tk):
         self.build_entry_tab()
         self.build_history_tab()
         self.build_events_tab()
-        self.build_report_tab()
         self.build_scoring_tab()
         self.notebook.select(self.entry_tab)
 
@@ -1999,11 +1883,19 @@ class PHQ9App(Tk):
         top = Frame(self.dashboard, bg="#F8FAFC")
         top.pack(fill="x", pady=(0, 10))
         Label(top, text="Review", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 16, "bold")).pack(side=LEFT)
-        Button(top, text="Analysis Workbook", command=self.export_analysis_file).pack(side=RIGHT, padx=(6, 0))
-        Button(top, text="Exports", command=self.export_file).pack(side=RIGHT, padx=(6, 0))
-        Button(top, text="Reports", command=lambda: self.notebook.select(self.report_tab)).pack(side=RIGHT, padx=(6, 0))
-        Button(top, text="Import Spreadsheet", command=self.import_file).pack(side=RIGHT, padx=(6, 0))
-        Button(top, text="Refresh", command=self.refresh_all).pack(side=RIGHT)
+        actions = Frame(top, bg="#F8FAFC")
+        actions.pack(side=RIGHT)
+        action_commands = {
+            "Refresh": self.refresh_all,
+            "Import Spreadsheet": self.import_file,
+            "Generate PDF": self.create_report,
+            "Analysis Workbook": self.export_analysis_file,
+        }
+        for index, label in enumerate(REVIEW_ACTION_LABELS):
+            Button(actions, text=label, command=action_commands[label]).pack(
+                side=LEFT,
+                padx=(0 if index == 0 else 6, 0),
+            )
 
         summary = Frame(self.dashboard, bg="#FFFFFF", padx=14, pady=12, highlightthickness=1, highlightbackground="#CBD5E1")
         summary.pack(fill="x", pady=(0, 10))
@@ -2235,33 +2127,6 @@ class PHQ9App(Tk):
             self.events_table.heading(col, text=col)
             self.events_table.column(col, width=width, anchor="w")
         self.events_table.pack(fill=BOTH, expand=True, padx=4, pady=10)
-
-    def build_report_tab(self):
-        box = LabelFrame(self.report_tab, text="Clinician Report", bg="#F8FAFC", padx=12, pady=12)
-        box.pack(fill="x", padx=4, pady=4)
-        dates = sorted(
-            {row.entry_date for row in fetch_assessment_entries("phq9")}
-            | {row.entry_date for row in fetch_assessment_entries("gad7")}
-        )
-        default_start = dates[0] if dates else (date.today() - timedelta(days=30)).isoformat()
-        default_end = dates[-1] if dates else date.today().isoformat()
-        self.report_start = StringVar(value=default_start)
-        self.report_end = StringVar(value=default_end)
-        Label(box, text="Start date", bg="#F8FAFC").grid(row=0, column=0, sticky="w")
-        Entry(box, textvariable=self.report_start, width=16).grid(row=0, column=1, sticky="w", padx=8)
-        Label(box, text="End date", bg="#F8FAFC").grid(row=0, column=2, sticky="w", padx=(18, 0))
-        Entry(box, textvariable=self.report_end, width=16).grid(row=0, column=3, sticky="w", padx=8)
-        Button(box, text="Generate PDF and CSV Report", command=self.create_report).grid(row=0, column=4, padx=18)
-        Label(
-            self.report_tab,
-            text=DISCLAIMER,
-            bg="#F8FAFC",
-            fg="#334155",
-            font=("Segoe UI", 10, "italic"),
-            wraplength=900,
-        ).pack(anchor="w", padx=8, pady=10)
-        self.report_status = Label(self.report_tab, text="", bg="#F8FAFC", fg="#172033", justify=LEFT)
-        self.report_status.pack(anchor="w", padx=8)
 
     def build_scoring_tab(self):
         Label(self.scoring_tab, text="How Scoring Works", bg="#F8FAFC", fg="#172033", font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=12, pady=(12, 6))
@@ -2600,8 +2465,6 @@ class PHQ9App(Tk):
                 21,
                 "Long-term GAD-7 recorded scores (up to 120 entries)",
             )
-            self.report_start.set(self.report_start.get() or all_dates[0])
-            self.report_end.set(all_dates[-1])
         else:
             self.review_summary.config(text="No check-ins are available yet. Today's Check-In is ready when you are.")
             for label in self.review_highlights:
@@ -2690,7 +2553,7 @@ class PHQ9App(Tk):
     def import_file(self):
         path = filedialog.askopenfilename(
             title="Import PHQ-9 spreadsheet",
-            filetypes=[("Excel files", "*.xlsx *.xls"), ("CSV files", "*.csv"), ("All files", "*.*")],
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")],
         )
         if not path:
             return
@@ -2704,24 +2567,6 @@ class PHQ9App(Tk):
             messagebox.showinfo("Import complete", f"Imported or updated {count} PHQ-9 entries.")
         except Exception as exc:
             messagebox.showerror("Import failed", str(exc))
-
-    def export_file(self):
-        path = filedialog.asksaveasfilename(
-            title="Export Mental Health Tracker data",
-            initialdir=str(EXPORTS_DIR),
-            defaultextension=".xlsx",
-            filetypes=[("Excel workbook", "*.xlsx"), ("CSV file", "*.csv")],
-        )
-        if not path:
-            return
-        try:
-            if path.lower().endswith(".xlsx") and pd is None:
-                run_bundled_cli(["--export", path], ("pandas", "openpyxl"))
-            else:
-                export_entries(path)
-            messagebox.showinfo("Export complete", f"Saved export to:\n{path}")
-        except Exception as exc:
-            messagebox.showerror("Export failed", str(exc))
 
     def export_analysis_file(self):
         path = filedialog.asksaveasfilename(
@@ -2816,13 +2661,10 @@ class PHQ9App(Tk):
         messagebox.showinfo("Saved", f"Saved event for {event_date}.")
 
     def create_report(self):
-        start = parse_date(self.report_start.get())
-        end = parse_date(self.report_end.get())
-        if not start or not end:
-            messagebox.showerror("Invalid date range", "Enter dates as YYYY-MM-DD.")
-            return
-        if start > end:
-            messagebox.showerror("Invalid date range", "Start date must be before or equal to end date.")
+        try:
+            start, end = available_report_date_range()
+        except ValueError as exc:
+            messagebox.showinfo("Report unavailable", str(exc))
             return
         target = filedialog.asksaveasfilename(
             title="Save clinician report PDF",
@@ -2833,17 +2675,15 @@ class PHQ9App(Tk):
         )
         if not target:
             return
-        csv_path = str(Path(target).with_suffix(".csv"))
         try:
             if colors is None or PILImage is None:
                 run_bundled_cli(
-                    ["--report-start", start, "--report-end", end, "--report-pdf", target],
+                    ["--report-pdf", target],
                     ("reportlab", "PIL"),
                 )
             else:
-                generate_report(start, end, target, csv_path)
-            self.report_status.config(text=f"Saved PDF report:\n{target}\n\nSaved CSV report:\n{csv_path}")
-            messagebox.showinfo("Report saved", f"Saved PDF and CSV report.\n\n{target}\n{csv_path}")
+                generate_report(start, end, target)
+            messagebox.showinfo("Report saved", f"Saved PDF report.\n\n{target}")
         except Exception as exc:
             messagebox.showerror("Report failed", str(exc))
 
@@ -2852,10 +2692,7 @@ def main():
     parser = argparse.ArgumentParser(description="Local Mental Health Tracker")
     parser.add_argument("--import", dest="import_path", help="Import an Excel workbook, then exit unless --launch is also set.")
     parser.add_argument("--launch", action="store_true", help="Launch the GUI after command-line actions.")
-    parser.add_argument("--report-start", help="Generate a report starting on YYYY-MM-DD.")
-    parser.add_argument("--report-end", help="Generate a report ending on YYYY-MM-DD.")
-    parser.add_argument("--report-pdf", help="PDF output path for command-line report generation.")
-    parser.add_argument("--export", help="Export entries to CSV or XLSX, then exit.")
+    parser.add_argument("--report-pdf", help="Generate a full-history PDF report at this output path.")
     parser.add_argument("--analysis-export", help="Export a normalized analysis-ready XLSX workbook, then exit.")
     args = parser.parse_args()
 
@@ -2863,17 +2700,15 @@ def main():
     if args.import_path:
         count = import_spreadsheet(args.import_path)
         print(f"Imported or updated {count} entries.")
-    if args.report_start and args.report_end and args.report_pdf:
+    if args.report_pdf:
         pdf_path = Path(args.report_pdf)
-        generate_report(args.report_start, args.report_end, str(pdf_path), str(pdf_path.with_suffix(".csv")))
+        start, end = available_report_date_range()
+        generate_report(start, end, str(pdf_path))
         print(f"Saved report to {pdf_path}")
-    if args.export:
-        export_entries(args.export)
-        print(f"Saved export to {args.export}")
     if args.analysis_export:
         export_analysis_workbook(args.analysis_export)
         print(f"Saved analysis workbook to {args.analysis_export}")
-    has_cli_action = bool(args.import_path or args.report_pdf or args.export or args.analysis_export)
+    has_cli_action = bool(args.import_path or args.report_pdf or args.analysis_export)
     if args.launch or not has_cli_action:
         PHQ9App().mainloop()
 

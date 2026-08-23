@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 # Privacy and Data Handling
 
@@ -8,8 +8,8 @@ This project is designed for local use. It should not upload PHQ-9 records or tr
 Private data belongs in:
 
 - `data/` for local SQLite databases
-- `reports/` for generated PDF/CSV clinician reports
-- `exports/` for generated CSV/XLSX data exports
+- `reports/` for generated clinician PDFs
+- `exports/` for generated normalized XLSX analysis workbooks
 
 Do not commit:
 

@@ -100,8 +100,7 @@ class Iteration007ReportTests(unittest.TestCase):
         app.add_event("2026-02-20", "Therapy", "Synthetic appointment")
 
         pdf_path = Path(self.tmp.name) / "discussion-report.pdf"
-        csv_path = Path(self.tmp.name) / "discussion-report.csv"
-        app.generate_report("2026-01-01", "2026-03-01", str(pdf_path), str(csv_path))
+        app.generate_report("2026-01-01", "2026-03-01", str(pdf_path))
 
         reader = PdfReader(str(pdf_path))
         report_text = "\n".join(page.extract_text() or "" for page in reader.pages)
@@ -117,7 +116,7 @@ class Iteration007ReportTests(unittest.TestCase):
         self.assertNotIn("Most Recent 14-Day Symptom Responses", report_text)
         self.assertNotIn("Recent Symptom Detail", report_text)
         self.assertNotIn("Ketamine Response Review", report_text)
-        self.assertIn("PHQ-9 Entries", csv_path.read_text(encoding="utf-8"))
+        self.assertFalse(pdf_path.with_suffix(".csv").exists())
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 # ADR 0005: Conversation-Focused Reporting
 
@@ -13,7 +13,7 @@ Earlier clinician reports accumulated repeated raw tables and detail that made t
 
 ## Decision
 
-Make the primary clinician report a compact, local conversation aid focused on scoring context, overall patterns, symptom highlights, treatment context, complete user-authored journal entries, entry coverage, and neutral discussion prompts. Keep detailed raw records available through CSV/XLSX exports instead of repeating them throughout the PDF.
+Make the primary clinician report a compact, local conversation aid focused on scoring context, overall patterns, symptom highlights, treatment context, complete user-authored journal entries, entry coverage, and neutral discussion prompts. Keep detailed records available through the normalized XLSX Analysis Workbook instead of repeating them throughout the PDF.
 
 ## Rationale
 
@@ -33,3 +33,9 @@ A concise report is easier to use during a limited clinical conversation. Separa
 - The analysis-ready workbook uses **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, **Metadata**, and a derived **Daily Summary**.
 - The clinician report begins with **How to Read This Report**, then uses **Recorded Period Overview**, **Recorded Symptom Trends**, **Treatment Context**, **Journal and Event Context**, and **Conversation Starters**.
 - The early explanation distinguishes **Daily Severity Score** from **14-Day Symptom Frequency Score** and explicitly addresses coverage and missing check-ins.
+
+## Iteration 008 Implementation
+
+- Review is the single access point for both outputs: **Generate PDF** for a conversation aid and **Analysis Workbook** for independent analysis.
+- The clinician PDF automatically uses the full available assessment-history range and no longer creates a companion CSV.
+- The legacy combined CSV/XLSX exporter was retired. The normalized seven-sheet Analysis Workbook is the sole data-export format.

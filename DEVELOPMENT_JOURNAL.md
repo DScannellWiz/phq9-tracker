@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 # Development Journal
 
@@ -147,6 +147,27 @@ Synthetic entries persisted across a full close and reopen. The packaged clinici
 The runtime window/taskbar icon still displayed the generic Tk feather even though PyInstaller embedded the intended icon. That discrepancy remains a deferred cosmetic packaging issue rather than a release blocker. Inno Setup remains unavailable, so installer validation is still pending.
 
 No scoring formulas, database schema, production records, or privacy boundaries changed.
+
+## August 22, 2026: Iteration 008 Review and Clinician Report Workflow
+
+### Context
+
+The application exposed overlapping output paths: a clinician PDF with an automatically generated companion CSV, a legacy combined CSV/XLSX exporter, and the normalized Analysis Workbook introduced in Iteration 007.2. The legacy files were presentation-oriented and did not provide the separate logical datasets needed for flexible external analysis. The dedicated Clinician Report tab also required a manual date range even though the desired workflow was a one-click full-history conversation aid from Review.
+
+### Decisions
+
+- Keep two clear outputs: a clinician PDF for conversation and the normalized XLSX Analysis Workbook for independent analysis.
+- Make Review the single access point for **Refresh**, **Import Spreadsheet**, **Generate PDF**, and **Analysis Workbook**.
+- Remove the Clinician Report tab and calculate the earliest/latest assessment dates when PDF generation is requested.
+- Retire the legacy combined CSV/XLSX export and the clinician-report companion CSV rather than leaving dormant production paths.
+- Preserve all existing database records, scoring behavior, full journal text, report structure, and the local-only privacy boundary.
+- Keep chart value callouts and the broader micro-UX/accessibility work in Iteration 008.1 so this iteration remains focused.
+
+### Validation and consequences
+
+All 41 automated tests pass with isolated synthetic databases, and source compilation passes. Focused coverage confirms the four Review actions, absence of the Clinician Report tab, fresh full-history bounds, PDF-only report output, and removal of the legacy export function. The normalized workbook tests continue to validate all seven worksheets, stable relationships, complete narrative/event text, and multiple legitimate same-day events. A four-page fictional full-history PDF passed text extraction and page-by-page rendered inspection with the correct range, complete long-form notes, and no companion CSV.
+
+No migration is required, and previously generated CSV/XLSX files are not deleted. Interactive source-GUI and packaged-release validation remain separate gates.
 
 ## Ongoing Journal Practice
 

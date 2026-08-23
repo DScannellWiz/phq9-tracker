@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 # Build and Release Notes
 
@@ -89,6 +89,8 @@ Iteration 007 also requires no schema migration. Date navigation, Review summari
 
 Iteration 007.2 requires no schema migration. Its normalized analysis workbook derives stable relationships from existing assessment IDs, treatment-event IDs, and deterministic date/item identifiers.
 
+Iteration 008 requires no schema migration. It removes legacy report/export interfaces and code while continuing to read the same assessment, note, and treatment-event records.
+
 ## Size Reduction
 
 Current build script excludes common development-only modules such as test tooling, notebooks, and IPython. Inno Setup uses LZMA2 solid compression. Additional opportunities:
@@ -114,9 +116,9 @@ Update these together for each release:
 - Save a Today's Check-In with PHQ-9, GAD-7, notes, and optional treatment event.
 - Navigate across month and year boundaries, confirm an existing date auto-loads, verify future dates are blocked, and confirm unsaved-change protection.
 - Open Review and inspect recent, treatment-cycle, and long-term views using synthetic data.
-- Generate clinician PDF and CSV report when `reportlab` and `Pillow` are available.
-- Confirm the clinician PDF has no clipped content, preserves every selected-period journal entry in full, and omits duplicate raw PHQ-9 tables. Typical reports remain compact, but narrative-heavy reports may exceed four pages rather than truncate user text.
-- Export CSV and Excel data-only spreadsheets.
+- Confirm Review shows **Refresh**, **Import Spreadsheet**, **Generate PDF**, and **Analysis Workbook**, with no separate Clinician Report tab.
+- Generate the full-history clinician PDF when `reportlab` and `Pillow` are available and confirm that no companion CSV is created.
+- Confirm the clinician PDF has no clipped content, preserves every included journal entry in full, and omits duplicate raw PHQ-9 tables. Typical reports remain compact, but narrative-heavy reports may exceed four pages rather than truncate user text.
 - Export the normalized analysis workbook and confirm its seven logical worksheets contain no merged cells, one logical record per row, and valid identifier relationships.
 - Inspect the portable folder and ZIP before launch; confirm they contain no database, report, export, log, screenshot, PHI, or PII.
 - Launch the portable package, confirm it creates `phq9_tracker.sqlite` beside the executable, save synthetic data, restart and confirm persistence, then delete/reset the synthetic database and verify a fresh launch contains zero records.
@@ -129,6 +131,8 @@ Update these together for each release:
 ## Current Validation Status
 
 Iteration 007.2 passed 40 automated tests using isolated synthetic databases. A normalized workbook passed worksheet, relationship, no-merge, full-text, ISO-date, and same-day-event checks. A four-page synthetic clinician report was structurally checked, rendered to PNG, and visually inspected with complete long-form notes.
+
+Iteration 008 passes 41 automated tests using isolated synthetic databases. The focused tests confirm the four-action Review workflow, removal of the Clinician Report tab and legacy combined exporter, fresh full-history report bounds, and PDF-only report generation. Source compilation also passes. A four-page fictional full-history PDF passed text extraction and page-by-page rendered inspection with all required sections, all six long-form fictional notes, the correct date range, and no companion CSV. Interactive source-GUI and packaged-release validation remain separate gates.
 
 On August 15, 2026, PyInstaller 6.22.1 successfully created the folder-based application, `release\PHQ9Tracker-Portable-0.2.0\`, and `release\PHQ9Tracker-Portable-0.2.0.zip`. Inspection before first launch confirmed that neither the portable folder nor the ZIP contained `.sqlite`, `.db`, or `.sqlite3` files. The first packaged launch created `phq9_tracker.sqlite` inside the portable folder as designed. Review, History / Manage Entries, Treatment Events, Clinician Report, and How Scoring Works opened cleanly with no prior data.
 

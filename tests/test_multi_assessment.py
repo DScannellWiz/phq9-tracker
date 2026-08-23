@@ -1,4 +1,3 @@
-import csv
 import importlib
 import os
 import sqlite3
@@ -56,33 +55,16 @@ class MultiAssessmentTests(unittest.TestCase):
         self.assertEqual(rows[0].total, 9)
         self.assertEqual(rows[0].notes, "legacy note")
 
-    def test_export_combines_phq9_gad7_notes_and_events(self):
-        app.upsert_entry("2026-03-01", [1, 1, 1, 1, 1, 1, 1, 1, 0], notes="combined note", note_tag="Sleep")
-        app.upsert_assessment_entry("gad7", "2026-03-01", [2, 2, 1, 1, 0, 0, 0], notes="combined note", note_tag="Sleep")
-        app.add_event("2026-03-01", "Therapy", "Fake therapy")
-        output = Path(self.tmp.name) / "combined.csv"
-        app.export_entries(str(output))
-        with output.open(newline="", encoding="utf-8") as handle:
-            rows = list(csv.DictReader(handle))
-        self.assertEqual(rows[0]["PHQ-9 Daily Severity Score"], "8")
-        self.assertEqual(rows[0]["GAD-7 Daily Severity Score"], "6")
-        self.assertEqual(rows[0]["Daily Notes"], "combined note")
-        self.assertEqual(rows[0]["Therapy"], "Yes")
-
-    def test_combined_report_writes_pdf_and_csv(self):
+    def test_combined_report_writes_pdf_without_companion_csv(self):
         if app.colors is None or app.PILImage is None:
             self.skipTest("PDF report generation requires reportlab and Pillow.")
         app.upsert_entry("2026-04-01", [0, 1, 1, 1, 0, 1, 1, 1, 0], notes="PHQ note")
         app.upsert_assessment_entry("gad7", "2026-04-01", [1, 1, 1, 1, 1, 0, 0], notes="GAD note")
         app.add_event("2026-04-01", "Medication Start", "Fake medication marker")
         pdf_path = Path(self.tmp.name) / "report.pdf"
-        csv_path = Path(self.tmp.name) / "report.csv"
-        app.generate_report("2026-04-01", "2026-04-01", str(pdf_path), str(csv_path))
+        app.generate_report("2026-04-01", "2026-04-01", str(pdf_path))
         self.assertTrue(pdf_path.exists())
-        self.assertTrue(csv_path.exists())
-        text = csv_path.read_text(encoding="utf-8")
-        self.assertIn("GAD-7 Entries", text)
-        self.assertIn("Treatment Events", text)
+        self.assertFalse(pdf_path.with_suffix(".csv").exists())
 
 
 if __name__ == "__main__":

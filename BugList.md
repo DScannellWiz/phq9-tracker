@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 BUG: Report generation dependency detection
 
@@ -223,9 +223,30 @@ Validation:
 
 ---
 
+## Iteration 008: Legacy export and report workflow cleanup
+
+Status: Implementation, automated validation, and rendered synthetic-PDF validation complete; interactive GUI validation pending
+
+Resolved:
+
+- Review now exposes exactly **Refresh**, **Import Spreadsheet**, **Generate PDF**, and **Analysis Workbook**.
+- The separate Clinician Report tab and its manual start/end-date controls were removed.
+- PDF generation recalculates the earliest and latest assessment dates each time and produces no companion CSV.
+- The legacy combined CSV/XLSX exporter, its UI controls, and its command-line entry point were removed.
+- The normalized seven-sheet Analysis Workbook remains the sole data-export format.
+
+Validation:
+
+- All 41 automated tests pass with isolated synthetic databases.
+- Source compilation passes.
+- Focused tests cover the four Review actions, tab removal, refreshed full-history bounds, PDF-only output, and removal of the legacy export function.
+- A four-page fictional full-history PDF passed text extraction and page-by-page rendered inspection with the correct range, complete long-form notes, and no companion CSV.
+
+---
+
 ## Future enhancement: Chart value discoverability
 
-Status: Reporting clarity completed in Iteration 007.2; chart work remains planned for Iteration 008
+Status: Reporting clarity completed in Iteration 007.2; chart work remains planned for Iteration 008.1
 
 - Iteration 007.2 restored the fuller clinician-report explanation and preserved complete selected-period journal text.
 - Make chart point dates and exact scores directly discoverable through click or hover callouts as an accessibility and readability improvement.

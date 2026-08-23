@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 # Roadmap
 
@@ -15,9 +15,8 @@ Build a privacy-first, local-only mental health tracking application that helps 
 - Correct 14-day symptom-frequency scoring for PHQ-9 and GAD-7.
 - Local SQLite storage.
 - Multi-assessment dashboard.
-- Clinician PDF reports and companion CSV reports.
-- CSV/XLSX data exports.
-- Separate normalized XLSX analysis workbook.
+- Full-history clinician PDF reports.
+- Normalized multi-sheet XLSX analysis workbooks.
 - Treatment event tracking.
 - Daily notes.
 - GitHub-ready project structure.
@@ -105,7 +104,7 @@ Delivered:
 - Added a separate analysis-ready Excel export with normalized **Daily Assessments**, **Item Responses**, **Notes**, **Treatment Events**, **Treatment Cycles**, and **Metadata** worksheets.
 - Added a derived **Daily Summary** convenience worksheet while keeping the normalized worksheets authoritative.
 - Used one logical record per row, snake_case field names, ISO dates, stable database-backed or deterministic export identifiers, and documented cross-sheet relationships without merged cells or decorative blank rows.
-- Preserved the existing combined CSV/XLSX export for backward compatibility.
+- Preserved the existing combined CSV/XLSX export for backward compatibility at the time; Iteration 008 later retired this legacy path in favor of the normalized Analysis Workbook.
 - Moved a fuller **How to Read This Report** explanation to the beginning of the clinician report and clarified Daily Severity Score, 14-Day Symptom Frequency Score, coverage, and missing check-ins.
 - Adopted the compact section flow **Recorded Period Overview**, **Recorded Symptom Trends**, **Treatment Context**, **Journal and Event Context**, and **Conversation Starters**.
 - Removed journal-row and character limits. All user-authored notes in the selected period are included verbatim; report length may grow when the recorded narrative requires it.
@@ -133,7 +132,23 @@ Tentative concept; no iteration number is locked:
 - Do not open the SQLite file directly over a Windows network share.
 - Preserve the local-only boundary: no cloud relay, public Internet service, or automatic external synchronization.
 
-### Iteration 008: Micro-UX & Accessibility
+### Iteration 008: Review and Clinician Report Workflow
+
+Status: Implementation, automated source validation, and rendered synthetic-PDF validation complete; interactive GUI and packaged-release validation remain pending.
+
+Delivered:
+
+- Made Review the single access point for the four agreed actions: **Refresh**, **Import Spreadsheet**, **Generate PDF**, and **Analysis Workbook**.
+- Removed the separate Clinician Report tab and its start/end-date controls.
+- Made **Generate PDF** calculate the full available assessment-history range each time it is selected.
+- Stopped creating a companion CSV beside the clinician PDF.
+- Retired the legacy combined CSV/XLSX exporter, its Review and File-menu controls, and its command-line entry point.
+- Kept the normalized seven-sheet Analysis Workbook as the sole data-export format.
+- Preserved scoring, storage, report content, complete journal text, legacy PHQ-9 data compatibility, and the local-only privacy boundary without a schema migration.
+- Added focused workflow/range tests and updated earlier report tests. All 41 automated tests pass with isolated synthetic databases, and source compilation passes.
+- Generated and inspected a four-page fictional full-history PDF; all required sections and complete long-form notes were present, the date range was correct, and no companion CSV was created.
+
+### Iteration 008.1: Chart Accessibility and Micro-UX
 
 Planned small usability and accessibility refinements:
 
@@ -141,6 +156,7 @@ Planned small usability and accessibility refinements:
 - Treat graph value discoverability as an accessibility and readability requirement for users who may have difficulty visually tracing a point across a wide chart, not merely as a cosmetic enhancement.
 - Load a selected date automatically where doing so safely removes an unnecessary click.
 - Use clearer status and confirmation wording.
+- Make the PHQ-9 item 9 Conversation Starter recency-aware: highlight an above-zero response only when one was recorded in the most recent 14-day window; preserve older above-zero responses as neutral historical context; omit the prompt when none was recorded; disclose recent check-in coverage; and do not imply current risk from historical data.
 - Improve button spacing and consistency, along with typography and general readability.
 - Add keyboard shortcuts where they genuinely reduce effort or improve navigation.
 - Consider scalable text and interface sizing as a future accessibility enhancement.

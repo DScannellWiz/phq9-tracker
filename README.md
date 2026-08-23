@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-15
+Current as of: 2026-08-22
+Last substantive update: 2026-08-22
 
 # Mental Health Tracker
 
@@ -20,8 +20,7 @@ The project began as a PHQ-9 tracker and now supports a reusable multi-assessmen
 - SQLite local storage under the project `data` folder during source runs.
 - A separate Review experience with concise, deterministic symptom summaries, recent charts, current/previous ketamine-cycle views, and long-term trends.
 - Compact clinician discussion reports centered on scoring context, recorded patterns, treatment context, complete user-authored journal text, and neutral conversation prompts. Reports expand as needed rather than truncating journal entries.
-- Backward-compatible CSV/XLSX exports with both assessments.
-- A separate normalized XLSX analysis workbook with Daily Assessments, Item Responses, Notes, Treatment Events, Treatment Cycles, Metadata, and a derived Daily Summary.
+- A normalized XLSX analysis workbook with Daily Assessments, Item Responses, Notes, Treatment Events, Treatment Cycles, Metadata, and a derived Daily Summary.
 - Treatment event tracking.
 - Automated tests for scoring, migration, exports, and report behavior where local dependencies are available.
 
@@ -44,7 +43,7 @@ For source runs, execute commands from the project root so the app can locate `d
 4. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Review information is intentionally kept out of Today's Check-In.
 5. Use **History / Manage Entries** to move one day at a time, edit existing records, or add another legitimate event to a day that already has records. Empty dates remain read-only and direct you back to Today's Check-In for new daily recording.
 6. Select any relevant event checkboxes in Today's Check-In, or use **Add Custom Event** for another event type.
-7. Generate a clinician report when you want a readable conversation aid. Use **Analysis Workbook** when you want normalized data for filtering, sorting, pivoting, or independent analysis.
+7. From **Review**, use **Generate PDF** when you want a readable full-history conversation aid. Use **Analysis Workbook** when you want normalized data for filtering, sorting, pivoting, or independent analysis.
 
 Daily check-ins intentionally do not copy or autofill previous responses. Each symptom should be considered independently to encourage mindful reflection and higher-quality recorded data.
 
