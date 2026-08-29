@@ -190,6 +190,21 @@ Nine focused tests were added for chart callout text and hit targets, recent/old
 
 Interactive source-GUI review remains necessary for callout placement at chart edges and extremes, keyboard focus visibility, spacing at the minimum supported window size, safe date focus transitions, and final wording. Packaged portable/installer validation remains a separate release gate. Scalable or user-configurable text sizing is deliberately deferred because it requires broader layout validation.
 
+## August 28, 2026: Clinician Output Information-Fidelity Issues Identified
+
+### Context
+
+Review of current clinician-facing outputs confirmed two presentation problems while also confirming that the underlying records and scoring remain sound. First, the daily PHQ-9 and GAD-7 item responses and established 14-day scoring logic are still available, but the current clinician report and Analysis Workbook no longer present the resulting per-item 0-3 14-Day Symptom Frequency Scores. Second, two legitimate 2026-08-11 treatment events stored and shown in the UI as **Therapy** and **Physical Therapy** share the same description, but the clinician PDF labels both as **Therapy**.
+
+### Decisions
+
+- Classify the missing per-item scores as an information-presentation regression, not data loss or a scoring-formula defect.
+- Plan a compact current 14-day symptom profile that shows each PHQ-9 and GAD-7 item, symptom-present days and coverage as appropriate, and its resulting 0-3 frequency score.
+- Preserve the conversation-focused report design and normalized workbook model rather than restoring redundant raw-response tables.
+- Classify the treatment-event issue as a clinician-PDF presentation/mapping defect. Preserve the stored event type closely enough to distinguish Physical Therapy from counseling Therapy.
+- Keep both valid 2026-08-11 records unchanged and add regression coverage for distinct same-day event types with the same description.
+- Group these closely related clinician-output fidelity corrections into planned Iteration 008.2. No application code changes are part of this documentation update.
+
 ## Ongoing Journal Practice
 
 Future iteration entries should capture the context that prompted the work, the decisions made, meaningful alternatives that were rejected or deferred, validation performed, consequences, and lessons learned. Significant product or architectural decisions should also be recorded or amended in `docs/decisions/`.

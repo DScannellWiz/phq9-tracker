@@ -186,6 +186,45 @@ Resolution:
 
 ---
 
+## BUG: Per-item 14-Day Symptom Frequency Scores are no longer presented
+
+Status: Open; planned for Iteration 008.2
+
+Priority: Medium
+
+Description:
+
+The current clinician report and Analysis Workbook do not present the resulting 0-3 **14-Day Symptom Frequency Score** for each PHQ-9 and GAD-7 item. The underlying daily item responses remain available, and the established 14-day scoring logic remains intact. This is an information-presentation regression, not data loss or a scoring-formula defect.
+
+Expected:
+
+- Add a compact current 14-day symptom profile for both PHQ-9 and GAD-7.
+- Show each assessment item, the symptom-present day count and recorded-day coverage as appropriate, and the resulting 0-3 14-Day Symptom Frequency Score.
+- Reuse the established 14-calendar-day scoring logic and disclose the effect of missing check-ins consistently with the existing report guidance.
+- Do not restore the redundant raw-response tables removed in Iteration 007.
+- Preserve the database schema, stored responses, scoring formulas, and the distinct purposes of the readable clinician PDF and analysis-ready workbook.
+
+---
+
+## BUG: Clinician PDF collapses Physical Therapy into Therapy
+
+Status: Open; planned for Iteration 008.2
+
+Priority: High
+
+Description:
+
+On 2026-08-11, the database and application UI correctly contain two distinct legitimate treatment events, **Therapy** and **Physical Therapy**, with the same description. The generated clinician PDF renders both event types as **Therapy**. The stored records are valid; this is a report presentation/mapping defect, not a duplicate-record or data-integrity problem.
+
+Expected:
+
+- Preserve enough of the stored treatment-event type in the clinician PDF to distinguish Physical Therapy from counseling Therapy.
+- Do not infer the event type from a shared description or collapse distinct stored types into one display label.
+- Add regression coverage using two legitimate same-day events with the same description and different stored types.
+- Confirm that the Analysis Workbook continues to preserve the distinct event types while implementing the PDF correction.
+
+---
+
 ## Iteration 007.1: Navigation and Review Polish
 
 Status: Completed

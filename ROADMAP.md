@@ -168,6 +168,23 @@ Deferred:
 
 - User-configurable or scalable text and interface sizing remains a future accessibility enhancement because it requires a broader layout and minimum-size review.
 
+### Iteration 008.2: Clinician Output Information Fidelity - Planned
+
+Status: Planned; documentation only. No application code has been changed for this iteration.
+
+Planned scope:
+
+- Restore a compact current 14-day symptom profile for PHQ-9 and GAD-7 in the clinician-facing outputs. For each item, present the symptom-present day count and recorded-day coverage as appropriate together with the resulting 0-3 **14-Day Symptom Frequency Score**.
+- Reuse the established daily item responses and 14-calendar-day scoring logic. Treat the missing presentation as a regression, not data loss or a scoring-formula defect.
+- Preserve the concise conversation-focused PDF and normalized Analysis Workbook purposes; do not bring back the redundant raw-response tables removed in Iteration 007.
+- Correct clinician-PDF treatment-event labeling so distinct stored types remain distinguishable. In particular, **Physical Therapy** must not be rendered as counseling **Therapy**, even when the two events share a date and description.
+- Add focused regression tests for both assessment types and for two legitimate same-day treatment events with the same description but different stored types. Confirm that the Analysis Workbook preserves the distinct event types.
+
+Non-goals:
+
+- No database migration, scoring change, record correction, or deletion of the valid 2026-08-11 events.
+- No broader clinician-report redesign or reintroduction of legacy export paths.
+
 ## Security and Privacy
 
 - Optional encrypted database.
