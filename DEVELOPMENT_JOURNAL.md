@@ -1,5 +1,5 @@
-Current as of: 2026-08-22
-Last substantive update: 2026-08-22
+Current as of: 2026-08-28
+Last substantive update: 2026-08-28
 
 # Development Journal
 
@@ -168,6 +168,27 @@ The application exposed overlapping output paths: a clinician PDF with an automa
 All 41 automated tests pass with isolated synthetic databases, and source compilation passes. Focused coverage confirms the four Review actions, absence of the Clinician Report tab, fresh full-history bounds, PDF-only report output, and removal of the legacy export function. The normalized workbook tests continue to validate all seven worksheets, stable relationships, complete narrative/event text, and multiple legitimate same-day events. A four-page fictional full-history PDF passed text extraction and page-by-page rendered inspection with the correct range, complete long-form notes, and no companion CSV.
 
 No migration is required, and previously generated CSV/XLSX files are not deleted. Interactive source-GUI and packaged-release validation remain separate gates.
+
+## August 28, 2026: Iteration 008.1 Chart Accessibility and Micro-UX
+
+### Context
+
+The Review charts showed trends but required visually tracing small points across a wide canvas to estimate a value. Date fields also retained a separate Load Date step even when changing dates could be handled safely, while several statuses and confirmations did not make the loaded-date boundary or consequence of a choice explicit. The full-history PDF treated every above-zero PHQ-9 item 9 response the same regardless of age, which could make older recorded information sound current.
+
+### Decisions
+
+- Treat exact chart values as accessibility information. Hover and click callouts show date, series, and score; keyboard-focused charts expose the same points through Left/Right, Enter, and Escape.
+- Auto-load a valid changed date only when no unsaved edit could be lost. If edits exist, preserve the current loaded state and require an explicit Load Date decision. Prevent saving when the typed date differs from the check-in actually loaded on screen.
+- Keep keyboard additions limited to established, low-ambiguity actions: Enter in date fields, F5 refresh, and navigation within a focused chart.
+- Improve readability with consistent existing-font defaults, padding, tab spacing, and table row height rather than adding a theme or UI dependency.
+- Anchor item 9 recency to the 14 calendar days ending on the report end date. Recent above-zero responses can lead the discussion prompt; older-only responses remain dated historical context and explicitly do not establish current risk; no item 9 prompt appears when no above-zero response was recorded. Every item 9 context statement discloses recent check-in coverage and missing-information limits.
+- Preserve the scoring formulas, database schema and contents, local-only data boundary, complete journal text, and established PDF/XLSX output purposes.
+
+### Validation and consequences
+
+Nine focused tests were added for chart callout text and hit targets, recent/older/absent item 9 cases, guarded date auto-loading, and extracted historical-item-9 PDF wording. The dependency-complete environment passed all 50 automated tests, including PDF generation and the normalized workbook path, and Python compilation passed. Only isolated fictional database paths and temporary generated artifacts were used.
+
+Interactive source-GUI review remains necessary for callout placement at chart edges and extremes, keyboard focus visibility, spacing at the minimum supported window size, safe date focus transitions, and final wording. Packaged portable/installer validation remains a separate release gate. Scalable or user-configurable text sizing is deliberately deferred because it requires broader layout validation.
 
 ## Ongoing Journal Practice
 

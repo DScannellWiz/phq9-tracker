@@ -1,5 +1,5 @@
-Current as of: 2026-08-22
-Last substantive update: 2026-08-22
+Current as of: 2026-08-28
+Last substantive update: 2026-08-28
 
 # Roadmap
 
@@ -150,16 +150,23 @@ Delivered:
 
 ### Iteration 008.1: Chart Accessibility and Micro-UX
 
-Planned small usability and accessibility refinements:
+Status: Implementation, full automated validation, and fictional PDF text validation complete; Daniel's source-GUI walkthrough and packaged-release validation remain pending.
 
-- Make graph point values directly discoverable through click or hover callouts that show the date and exact score.
-- Treat graph value discoverability as an accessibility and readability requirement for users who may have difficulty visually tracing a point across a wide chart, not merely as a cosmetic enhancement.
-- Load a selected date automatically where doing so safely removes an unnecessary click.
-- Use clearer status and confirmation wording.
-- Make the PHQ-9 item 9 Conversation Starter recency-aware: highlight an above-zero response only when one was recorded in the most recent 14-day window; preserve older above-zero responses as neutral historical context; omit the prompt when none was recorded; disclose recent check-in coverage; and do not imply current risk from historical data.
-- Improve button spacing and consistency, along with typography and general readability.
-- Add keyboard shortcuts where they genuinely reduce effort or improve navigation.
-- Consider scalable text and interface sizing as a future accessibility enhancement.
+Delivered:
+
+- Added graph point callouts that show the date, series, and exact score on hover or click. Charts can receive keyboard focus; Left/Right moves between points, Enter displays a point, and Escape clears the callout.
+- Added forgiving but bounded point hit targets so value discovery does not depend on precisely tracing a small marker across a wide chart.
+- Made valid changed date fields auto-load when focus moves away only if no unsaved edits could be lost. Dates with unsaved edits remain guarded, and saving is blocked when the typed date differs from the loaded check-in.
+- Added Enter-to-load on Today and History date fields and F5 refresh; broader global shortcuts were deliberately avoided because their context could be ambiguous or destructive.
+- Clarified loaded-date statuses, unsaved-change choices, permanent-deletion confirmations, and save/export completion messages.
+- Made PHQ-9 item 9 report context and Conversation Starters recency-aware. Recent above-zero responses use the most recent 14 calendar days; older above-zero responses remain explicitly historical and do not imply current risk; prompts are omitted when no above-zero response exists; recent coverage and missing-information limits are disclosed.
+- Applied consistent Segoe UI defaults, roomier notebook tabs, readable table rows, and more consistent button padding and Review action widths without adding a new UI dependency.
+- Preserved scoring, the database schema and records, local-only privacy, complete journal text, and the PDF/Analysis Workbook output contracts.
+- Added nine focused tests. All 50 automated tests pass in the dependency-complete environment, including PDF and workbook paths, and source compilation passes.
+
+Deferred:
+
+- User-configurable or scalable text and interface sizing remains a future accessibility enhancement because it requires a broader layout and minimum-size review.
 
 ## Security and Privacy
 

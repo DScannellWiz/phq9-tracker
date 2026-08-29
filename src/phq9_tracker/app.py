@@ -238,6 +238,38 @@ class TreatmentCycle:
     entries: list[EntryRow | AssessmentEntryRow]
 
 
+@dataclass(frozen=True)
+class ChartPoint:
+    """One discoverable score point rendered on a Review chart."""
+
+    x: float
+    y: float
+    entry_date: str
+    series_name: str
+    score: int
+    color: str
+
+
+@dataclass(frozen=True)
+class Item9Context:
+    """Recency and coverage facts for PHQ-9 item 9 discussion language."""
+
+    recent_start: str
+    recent_end: str
+    recent_checkins: int
+    recent_above_zero: int
+    historical_above_zero: int
+    latest_historical_date: str | None
+
+    @property
+    def has_recent_above_zero(self) -> bool:
+        return self.recent_above_zero > 0
+
+    @property
+    def has_historical_above_zero(self) -> bool:
+        return self.historical_above_zero > 0
+
+
 def severity_for_score(score: int) -> str:
     if score <= 4:
         return "Minimal"
@@ -428,8 +460,12 @@ def history_status_text(entry_date: str, day_data: dict) -> str:
     """Return calm History status text without implying that a record failed to load."""
     record_count = history_record_count(day_data)
     if record_count == 0:
-        return f"Nothing is recorded for {entry_date}. History only manages existing records."
-    return f"Loaded {record_count} record(s) for {entry_date}."
+        return (
+            f"No existing records for {entry_date}. History can edit only dates that already contain "
+            "a check-in, note, or treatment event."
+        )
+    noun = "record" if record_count == 1 else "records"
+    return f"Showing {record_count} existing {noun} for {entry_date}. Edits apply only to this loaded date."
 
 
 def responsive_canvas_dimension(actual: int, configured: int) -> int:
@@ -444,8 +480,94 @@ def chart_vertical_positions(title_bottom: int) -> tuple[int, int]:
     return legend_top, plot_top
 
 
+def chart_point_callout_text(point: ChartPoint) -> str:
+    """Return the exact date and score shown by chart point callouts."""
+    return f"{point.entry_date}  |  {point.series_name}: {point.score}"
+
+
+def nearest_chart_point(
+    points: list[ChartPoint],
+    x: float,
+    y: float,
+    max_distance: float = 12,
+) -> ChartPoint | None:
+    """Find a chart point only when the pointer is within a forgiving hit target."""
+    if not points:
+        return None
+    nearest = min(points, key=lambda point: (point.x - x) ** 2 + (point.y - y) ** 2)
+    distance_squared = (nearest.x - x) ** 2 + (nearest.y - y) ** 2
+    return nearest if distance_squared <= max_distance**2 else None
+
+
 def entries_for_window(entries, start_date: str, end_date: str):
     return [row for row in entries if start_date <= row.entry_date <= end_date]
+
+
+def item9_context(entries: list[AssessmentEntryRow], end_date: str) -> Item9Context:
+    """Separate recent item 9 responses from older selected-history context."""
+    recent_end = datetime.fromisoformat(end_date).date()
+    recent_start = recent_end - timedelta(days=13)
+    recent_start_text = recent_start.isoformat()
+    recent_end_text = recent_end.isoformat()
+    recent_entries = entries_for_window(entries, recent_start_text, recent_end_text)
+    historical_positive_entries = [
+        row for row in entries if row.entry_date < recent_start_text and row.items[8] > 0
+    ]
+    return Item9Context(
+        recent_start=recent_start_text,
+        recent_end=recent_end_text,
+        recent_checkins=len(recent_entries),
+        recent_above_zero=sum(row.items[8] > 0 for row in recent_entries),
+        historical_above_zero=len(historical_positive_entries),
+        latest_historical_date=(
+            max(row.entry_date for row in historical_positive_entries)
+            if historical_positive_entries
+            else None
+        ),
+    )
+
+
+def item9_context_summary(context: Item9Context) -> str | None:
+    """Describe item 9 recency without turning historical data into a current-risk claim."""
+    coverage = f"Recent check-in coverage was {context.recent_checkins} of 14 calendar days"
+    missing = "days without a check-in are missing information"
+    if context.has_recent_above_zero:
+        noun = "check-in" if context.recent_above_zero == 1 else "check-ins"
+        return (
+            f"An above-zero PHQ-9 item 9 response was recorded on {context.recent_above_zero} {noun} "
+            f"in the most recent 14-day window ({context.recent_start} to {context.recent_end}). "
+            f"{coverage}; {missing}. This is a factual discussion point, not an assessment of current safety."
+        )
+    if context.has_historical_above_zero:
+        noun = "check-in" if context.historical_above_zero == 1 else "check-ins"
+        return (
+            f"An above-zero PHQ-9 item 9 response was recorded earlier in the selected history on "
+            f"{context.historical_above_zero} {noun}, most recently on {context.latest_historical_date}. "
+            f"No above-zero item 9 response was recorded among {context.recent_checkins} PHQ-9 check-ins in the "
+            f"most recent 14-day window ({context.recent_start} to {context.recent_end}). {coverage}; {missing}. "
+            "This older information is neutral historical context and does not establish current risk."
+        )
+    return None
+
+
+def item9_conversation_starter(context: Item9Context) -> str | None:
+    """Return a recency-aware prompt only when item 9 was above zero in selected history."""
+    if context.has_recent_above_zero:
+        return (
+            f"PHQ-9 item 9 was above zero on {context.recent_above_zero} of {context.recent_checkins} recorded "
+            f"check-ins in the most recent 14-day window. Recent check-in coverage was "
+            f"{context.recent_checkins} of 14 calendar days; missing days are missing information. "
+            "Would it be useful to discuss when this was recorded and what support, if any, would be useful now?"
+        )
+    if context.has_historical_above_zero:
+        return (
+            f"An above-zero PHQ-9 item 9 response was recorded earlier in the selected history, most recently on "
+            f"{context.latest_historical_date}. It was not recorded above zero among the "
+            f"{context.recent_checkins} check-ins in the most recent 14-day window; recent check-in coverage was "
+            f"{context.recent_checkins} of 14 calendar days. This is historical context and does not indicate "
+            "current risk; would it be useful to discuss what has changed since then?"
+        )
+    return None
 
 
 def overall_pattern_summary(
@@ -1647,14 +1769,13 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
     story.append(Paragraph("Recorded Symptom Trends", styles["Heading1"]))
     add_chart(story, str(phq_chart), "PHQ-9 scores across the selected period", width=6.1 * inch)
     add_chart(story, str(gad_chart), "GAD-7 scores across the selected period", width=6.1 * inch)
-    q9_values = [row.items[8] for row in entries]
-    if q9_values:
-        q9_days = sum(value > 0 for value in q9_values)
-        story.append(Paragraph("PHQ-9 self-harm item", styles["Heading2"]))
+    q9_context = item9_context(entries, end)
+    q9_summary = item9_context_summary(q9_context)
+    if q9_summary:
+        story.append(Paragraph("PHQ-9 item 9 context", styles["Heading2"]))
         story.append(
             Paragraph(
-                f"A response above zero was recorded on {q9_days} of {len(q9_values)} PHQ-9 check-ins in this period. "
-                "This is included as a factual discussion point and is not an assessment of current safety.",
+                q9_summary,
                 styles["BodyText"],
             )
         )
@@ -1723,8 +1844,9 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
         "Were there particular days, events, or treatment dates that would help explain the recorded context?",
         "Which symptom changes would be most useful to discuss or monitor together next?",
     ]
-    if q9_values and any(value > 0 for value in q9_values):
-        prompts.insert(0, "A PHQ-9 self-harm response was recorded above zero; consider discussing when it occurred and whether support is needed now.")
+    q9_prompt = item9_conversation_starter(q9_context)
+    if q9_prompt:
+        prompts.insert(0, q9_prompt)
     for prompt in prompts[:4]:
         story.append(Paragraph(f"- {prompt}", styles["BodyText"]))
     doc.build(story, onFirstPage=on_report_page, onLaterPages=on_report_page)
@@ -1732,9 +1854,27 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
 
 class LineChart(Canvas):
     def __init__(self, parent, **kwargs):
-        super().__init__(parent, bg="#FFFFFF", highlightthickness=1, highlightbackground="#CBD5E1", **kwargs)
+        kwargs.setdefault("takefocus", True)
+        super().__init__(
+            parent,
+            bg="#FFFFFF",
+            highlightthickness=1,
+            highlightbackground="#CBD5E1",
+            highlightcolor="#2563EB",
+            **kwargs,
+        )
         self._series_args = None
+        self._chart_points: list[ChartPoint] = []
+        self._hovered_point_index: int | None = None
+        self._locked_point_index: int | None = None
         self.bind("<Configure>", self._redraw_after_resize)
+        self.bind("<Motion>", self._show_hover_callout)
+        self.bind("<Leave>", self._hide_hover_callout)
+        self.bind("<Button-1>", self._toggle_click_callout)
+        self.bind("<Left>", lambda event: self._move_keyboard_callout(-1))
+        self.bind("<Right>", lambda event: self._move_keyboard_callout(1))
+        self.bind("<Return>", self._lock_keyboard_callout)
+        self.bind("<Escape>", self._clear_callout)
 
     def draw_series(self, entries: list[EntryRow], series: list[tuple[str, list[int], str]], y_max: int, title: str) -> None:
         self._series_args = (entries, series, y_max, title)
@@ -1745,7 +1885,10 @@ class LineChart(Canvas):
             self._render_series(*self._series_args)
 
     def _render_series(self, entries: list[EntryRow], series: list[tuple[str, list[int], str]], y_max: int, title: str) -> None:
+        locked_index = self._locked_point_index
         self.delete("all")
+        self._chart_points = []
+        self._hovered_point_index = None
         width = responsive_canvas_dimension(self.winfo_width(), int(self["width"]))
         height = responsive_canvas_dimension(self.winfo_height(), int(self["height"]))
         pad_l, pad_r, pad_b = 46, 18, 36
@@ -1775,14 +1918,27 @@ class LineChart(Canvas):
             self.create_text(pad_l - 8, y, text=str(tick), anchor="e", fill="#475569", font=("Segoe UI", 8))
         points_count = max(len(entries) - 1, 1)
         for name, values, color in series:
-            points = []
-            for idx, value in enumerate(values):
+            line_points = []
+            series_points = []
+            for idx, value in enumerate(values[: len(entries)]):
                 x = pad_l + (idx / points_count) * plot_w
                 y = pad_t + plot_h - (value / y_max) * plot_h
-                points.extend([x, y])
-                self.create_oval(x - 3, y - 3, x + 3, y + 3, fill=color, outline=color)
-            if len(points) >= 4:
-                self.create_line(*points, fill=color, width=2, smooth=True)
+                line_points.extend([x, y])
+                series_points.append(ChartPoint(x, y, entries[idx].entry_date, name, value, color))
+            if len(line_points) >= 4:
+                self.create_line(*line_points, fill=color, width=2, smooth=True, tags=("chart-line",))
+            for point in series_points:
+                self._chart_points.append(point)
+                self.create_oval(
+                    point.x - 4,
+                    point.y - 4,
+                    point.x + 4,
+                    point.y + 4,
+                    fill=point.color,
+                    outline="#FFFFFF",
+                    width=1,
+                    tags=("chart-point",),
+                )
         labels = [entries[0].entry_date, entries[-1].entry_date] if len(entries) > 1 else [entries[0].entry_date]
         self.create_text(pad_l, height - 14, text=labels[0], anchor="w", fill="#475569", font=("Segoe UI", 8))
         if len(labels) > 1:
@@ -1792,6 +1948,121 @@ class LineChart(Canvas):
             self.create_rectangle(legend_x, legend_top, legend_x + 10, legend_top + 10, fill=color, outline=color, tags=("chart-legend",))
             self.create_text(legend_x + 14, legend_top + 5, text=name, anchor="w", fill="#334155", font=("Segoe UI", 8), tags=("chart-legend",))
             legend_x += max(90, len(name) * 7)
+
+        if locked_index is not None and locked_index < len(self._chart_points):
+            self._locked_point_index = locked_index
+            self._display_callout(locked_index)
+        else:
+            self._locked_point_index = None
+
+    def _point_index_at(self, x: float, y: float) -> int | None:
+        point = nearest_chart_point(self._chart_points, x, y)
+        if point is None:
+            return None
+        return self._chart_points.index(point)
+
+    def _display_callout(self, point_index: int) -> None:
+        self.delete("chart-callout")
+        point = self._chart_points[point_index]
+        width = responsive_canvas_dimension(self.winfo_width(), int(self["width"]))
+        text_x = point.x + 10 if point.x <= width * 0.62 else point.x - 10
+        anchor = "sw" if point.x <= width * 0.62 else "se"
+        text_y = point.y - 9
+        if text_y < 28:
+            text_y = point.y + 9
+            anchor = "nw" if point.x <= width * 0.62 else "ne"
+        text_id = self.create_text(
+            text_x,
+            text_y,
+            text=chart_point_callout_text(point),
+            anchor=anchor,
+            fill="#172033",
+            font=("Segoe UI", 9, "bold"),
+            tags=("chart-callout",),
+        )
+        bounds = self.bbox(text_id)
+        if bounds:
+            rectangle_id = self.create_rectangle(
+                bounds[0] - 6,
+                bounds[1] - 4,
+                bounds[2] + 6,
+                bounds[3] + 4,
+                fill="#FFF7D6",
+                outline="#A16207",
+                width=1,
+                tags=("chart-callout",),
+            )
+            self.tag_lower(rectangle_id, text_id)
+        self.create_oval(
+            point.x - 7,
+            point.y - 7,
+            point.x + 7,
+            point.y + 7,
+            outline="#172033",
+            width=2,
+            tags=("chart-callout",),
+        )
+
+    def _show_hover_callout(self, event) -> None:
+        if self._locked_point_index is not None:
+            return
+        point_index = self._point_index_at(event.x, event.y)
+        self.config(cursor="hand2" if point_index is not None else "")
+        if point_index is None:
+            self._hovered_point_index = None
+            self.delete("chart-callout")
+            return
+        if point_index != self._hovered_point_index:
+            self._hovered_point_index = point_index
+            self._display_callout(point_index)
+
+    def _hide_hover_callout(self, _event=None) -> None:
+        self.config(cursor="")
+        if self._locked_point_index is None:
+            self._hovered_point_index = None
+            self.delete("chart-callout")
+
+    def _toggle_click_callout(self, event) -> str:
+        self.focus_set()
+        point_index = self._point_index_at(event.x, event.y)
+        if point_index is None:
+            self._locked_point_index = None
+            self._hovered_point_index = None
+            self.delete("chart-callout")
+            return "break"
+        self._locked_point_index = None if point_index == self._locked_point_index else point_index
+        self._hovered_point_index = point_index
+        if self._locked_point_index is None:
+            self.delete("chart-callout")
+        else:
+            self._display_callout(point_index)
+        return "break"
+
+    def _move_keyboard_callout(self, direction: int) -> str:
+        if not self._chart_points:
+            return "break"
+        if self._locked_point_index is not None:
+            current = self._locked_point_index
+        elif self._hovered_point_index is not None:
+            current = self._hovered_point_index
+        else:
+            current = 0 if direction < 0 else -1
+        self._locked_point_index = (current + direction) % len(self._chart_points)
+        self._hovered_point_index = self._locked_point_index
+        self._display_callout(self._locked_point_index)
+        return "break"
+
+    def _lock_keyboard_callout(self, _event=None) -> str:
+        if self._chart_points and self._locked_point_index is None:
+            self._locked_point_index = self._hovered_point_index or 0
+            self._display_callout(self._locked_point_index)
+        return "break"
+
+    def _clear_callout(self, _event=None) -> str:
+        self._locked_point_index = None
+        self._hovered_point_index = None
+        self.delete("chart-callout")
+        return "break"
 
 
 PRIMARY_TAB_ORDER = (
@@ -1809,6 +2080,11 @@ REVIEW_ACTION_LABELS = (
     "Analysis Workbook",
 )
 
+CHART_INTERACTION_HELP = (
+    "Chart values: hover or click a point for its date and exact score. "
+    "Keyboard: Tab to a chart, use Left/Right to move, Enter to show, and Escape to clear."
+)
+
 
 class PHQ9App(Tk):
     def __init__(self):
@@ -1823,13 +2099,28 @@ class PHQ9App(Tk):
             pass
         init_db()
         self._checkin_snapshot = None
+        self._loaded_checkin_date = None
         self._history_snapshot = None
         self._loaded_history_date = None
+        self.configure_ui_styles()
         self.create_menu()
         self.create_widgets()
         self.load_checkin_date(confirm_unsaved=False)
         self.load_history_date(confirm_unsaved=False)
         self.refresh_all()
+
+    def configure_ui_styles(self):
+        """Apply restrained, readable defaults without introducing a theme dependency."""
+        self.option_add("*Font", ("Segoe UI", 10))
+        self.option_add("*Button.padX", 10)
+        self.option_add("*Button.padY", 5)
+        self.option_add("*Text.Font", ("Segoe UI", 10))
+        style = ttk.Style(self)
+        style.configure(".", font=("Segoe UI", 10))
+        style.configure("TNotebook.Tab", padding=(12, 7))
+        style.configure("Treeview", rowheight=26)
+        style.configure("TSpinbox", padding=3)
+        style.configure("TCombobox", padding=3)
 
     def create_menu(self):
         menu = Menu(self)
@@ -1878,6 +2169,7 @@ class PHQ9App(Tk):
         self.build_events_tab()
         self.build_scoring_tab()
         self.notebook.select(self.entry_tab)
+        self.bind_all("<F5>", self.refresh_from_shortcut)
 
     def build_dashboard(self):
         top = Frame(self.dashboard, bg="#F8FAFC")
@@ -1892,9 +2184,10 @@ class PHQ9App(Tk):
             "Analysis Workbook": self.export_analysis_file,
         }
         for index, label in enumerate(REVIEW_ACTION_LABELS):
-            Button(actions, text=label, command=action_commands[label]).pack(
+            Button(actions, text=label, command=action_commands[label], width=18).pack(
                 side=LEFT,
-                padx=(0 if index == 0 else 6, 0),
+                padx=(0 if index == 0 else 8, 0),
+                pady=2,
             )
 
         summary = Frame(self.dashboard, bg="#FFFFFF", padx=14, pady=12, highlightthickness=1, highlightbackground="#CBD5E1")
@@ -1907,6 +2200,15 @@ class PHQ9App(Tk):
             label = Label(summary, text="", bg="#FFFFFF", fg="#334155", wraplength=1040, justify=LEFT)
             label.pack(anchor="w", pady=2)
             self.review_highlights.append(label)
+        Label(
+            summary,
+            text=CHART_INTERACTION_HELP,
+            bg="#FFFFFF",
+            fg="#475569",
+            wraplength=1040,
+            justify=LEFT,
+            font=("Segoe UI", 9),
+        ).pack(anchor="w", pady=(8, 0))
 
         self.review_notebook = ttk.Notebook(self.dashboard)
         self.review_notebook.pack(fill=BOTH, expand=True)
@@ -1944,7 +2246,10 @@ class PHQ9App(Tk):
         form.pack(fill=BOTH, expand=True, padx=4, pady=4)
         Button(form, text="← Previous Day", command=lambda: self.navigate_checkin_date(-1)).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.date_var = StringVar(value=date.today().isoformat())
-        Entry(form, textvariable=self.date_var, width=16, justify="center").grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        self.checkin_date_entry = Entry(form, textvariable=self.date_var, width=16, justify="center")
+        self.checkin_date_entry.grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        self.checkin_date_entry.bind("<Return>", self.load_checkin_date_from_shortcut)
+        self.checkin_date_entry.bind("<FocusOut>", self.auto_load_checkin_date_if_safe)
         self.next_day_button = Button(form, text="Next Day →", command=lambda: self.navigate_checkin_date(1))
         self.next_day_button.grid(row=0, column=2, sticky="w", padx=8)
         Button(form, text="Load Date", command=self.load_checkin_date).grid(row=0, column=3, sticky="w", padx=8)
@@ -2033,7 +2338,10 @@ class PHQ9App(Tk):
         self.history_previous_button.pack(side=LEFT, padx=(0, 8))
         Label(top, text="Manage records for date (YYYY-MM-DD)", bg="#F8FAFC").pack(side=LEFT)
         self.history_date = StringVar(value=date.today().isoformat())
-        Entry(top, textvariable=self.history_date, width=16).pack(side=LEFT, padx=8)
+        self.history_date_entry = Entry(top, textvariable=self.history_date, width=16)
+        self.history_date_entry.pack(side=LEFT, padx=8)
+        self.history_date_entry.bind("<Return>", self.load_history_date_from_shortcut)
+        self.history_date_entry.bind("<FocusOut>", self.auto_load_history_date_if_safe)
         Button(top, text="Load Date", command=self.load_history_date).pack(side=LEFT)
         self.history_next_button = Button(top, text="Next Day →", command=lambda: self.navigate_history_date(1))
         self.history_next_button.pack(side=LEFT, padx=8)
@@ -2138,6 +2446,11 @@ class PHQ9App(Tk):
     def show_scoring_help(self):
         self.notebook.select(self.scoring_tab)
 
+    def refresh_from_shortcut(self, _event=None) -> str:
+        """Refresh local Review data using the conventional F5 shortcut."""
+        self.refresh_all()
+        return "break"
+
     def show_checkin_details(self):
         self.checkin_details.grid()
 
@@ -2163,8 +2476,9 @@ class PHQ9App(Tk):
         if not self.has_unsaved_checkin_changes():
             return True
         return messagebox.askyesno(
-            "Unsaved changes",
-            "This check-in has unsaved changes. Discard them and move to another date?",
+            "Discard unsaved check-in changes?",
+            "You have unsaved check-in changes. Choose Yes to discard them and load another date, "
+            "or No to keep editing this date.",
         )
 
     def navigate_checkin_date(self, days: int):
@@ -2176,6 +2490,25 @@ class PHQ9App(Tk):
             messagebox.showinfo("Date unavailable", str(exc))
             return
         self.date_var.set(target)
+        self.load_checkin_date(confirm_unsaved=False)
+
+    def load_checkin_date_from_shortcut(self, _event=None) -> str:
+        self.load_checkin_date()
+        return "break"
+
+    def auto_load_checkin_date_if_safe(self, _event=None) -> None:
+        """Load a newly entered date on focus change only when no edits could be lost."""
+        entry_date = parse_date(self.date_var.get())
+        if not entry_date or entry_date == self._loaded_checkin_date:
+            return
+        if datetime.fromisoformat(entry_date).date() > date.today():
+            return
+        if self.has_unsaved_checkin_changes():
+            self.checkin_mode.config(
+                text="Date changed — choose Load Date; current unsaved edits are still preserved.",
+                fg="#B45309",
+            )
+            return
         self.load_checkin_date(confirm_unsaved=False)
 
     def load_checkin_date(self, confirm_unsaved: bool = True):
@@ -2207,10 +2540,15 @@ class PHQ9App(Tk):
         self.custom_event_type.set(custom_events[0][2] if custom_events else "")
         self.checkin_event_desc.delete("1.0", END)
         self.checkin_mode.config(
-            text="Update Existing Entry" if has_data else "New daily entry",
+            text=(
+                f"Editing existing records for {entry_date}"
+                if has_data
+                else f"New check-in for {entry_date}"
+            ),
             fg="#B45309" if has_data else "#047857",
         )
         self.next_day_button.config(state="disabled" if entry_date == date.today().isoformat() else "normal")
+        self._loaded_checkin_date = entry_date
         self._checkin_snapshot = self.checkin_state()
 
     def open_history_for_date(self, raw_date: str):
@@ -2241,8 +2579,9 @@ class PHQ9App(Tk):
         if not self.has_unsaved_history_changes():
             return True
         return messagebox.askyesno(
-            "Unsaved changes",
-            "History has unsaved changes. Discard them and move to another date?",
+            "Discard unsaved History changes?",
+            "You have unsaved History changes. Choose Yes to discard them and load another date, "
+            "or No to keep editing the currently loaded date.",
         )
 
     def navigate_history_date(self, days: int):
@@ -2256,6 +2595,25 @@ class PHQ9App(Tk):
         self.history_date.set(target)
         self.load_history_date(confirm_unsaved=False)
 
+    def load_history_date_from_shortcut(self, _event=None) -> str:
+        self.load_history_date()
+        return "break"
+
+    def auto_load_history_date_if_safe(self, _event=None) -> None:
+        """Load a newly entered History date only when no unsaved edits could be lost."""
+        try:
+            entry_date = validate_nonfuture_date(self.history_date.get())
+        except ValueError:
+            return
+        if entry_date == self._loaded_history_date:
+            return
+        if self.has_unsaved_history_changes():
+            self.history_status.config(
+                text="Date changed. Choose Load Date to continue; edits for the currently loaded date are preserved."
+            )
+            return
+        self.load_history_date(confirm_unsaved=False)
+
     def _loaded_history_action_date(self) -> str | None:
         try:
             entry_date = validate_nonfuture_date(self.history_date.get())
@@ -2263,7 +2621,10 @@ class PHQ9App(Tk):
             messagebox.showerror("Date unavailable", str(exc))
             return None
         if entry_date != self._loaded_history_date:
-            messagebox.showinfo("Load date first", "Load this date before changing its historical records.")
+            messagebox.showinfo(
+                "Load the selected date first",
+                "The date field differs from the records currently shown. Load the selected date before making changes.",
+            )
             return None
         return entry_date
 
@@ -2342,7 +2703,10 @@ class PHQ9App(Tk):
         if not entry_id:
             return
         name = ASSESSMENTS[assessment_id].display_name
-        if not messagebox.askyesno("Confirm deletion", f"Permanently delete the {name} assessment for {self.history_date.get()}?"):
+        if not messagebox.askyesno(
+            "Permanently delete assessment?",
+            f"Delete the {name} assessment for {self.history_date.get()}? This cannot be undone.",
+        ):
             return
         delete_assessment_entry(entry_id, assessment_id)
         self.refresh_all()
@@ -2355,11 +2719,14 @@ class PHQ9App(Tk):
         update_daily_note(entry_date, self.history_notes.get("1.0", END).strip(), self.history_note_tag.get().strip())
         self.refresh_all()
         self.load_history_date(confirm_unsaved=False)
-        messagebox.showinfo("Updated", "Updated the existing daily note without creating another record.")
+        messagebox.showinfo("Daily note updated", f"Updated the daily note for {entry_date} without creating a duplicate.")
 
     def delete_history_note(self):
         entry_date = self._loaded_history_action_date()
-        if not entry_date or not messagebox.askyesno("Confirm deletion", f"Permanently delete the daily note for {entry_date}?"):
+        if not entry_date or not messagebox.askyesno(
+            "Permanently delete daily note?",
+            f"Delete the daily note for {entry_date}? This cannot be undone.",
+        ):
             return
         delete_daily_note(entry_date)
         self.refresh_all()
@@ -2400,7 +2767,10 @@ class PHQ9App(Tk):
         if not self._loaded_history_action_date():
             return
         selected = self.history_events_table.selection()
-        if not selected or not messagebox.askyesno("Confirm deletion", "Permanently delete the selected treatment event?"):
+        if not selected or not messagebox.askyesno(
+            "Permanently delete treatment event?",
+            "Delete the selected treatment event? This cannot be undone.",
+        ):
             return
         delete_event(int(selected[0]))
         self.refresh_all()
@@ -2564,7 +2934,7 @@ class PHQ9App(Tk):
             else:
                 count = import_spreadsheet(path)
             self.refresh_all()
-            messagebox.showinfo("Import complete", f"Imported or updated {count} PHQ-9 entries.")
+            messagebox.showinfo("Import complete", f"Imported or updated {count} PHQ-9 entries. Review now shows the refreshed data.")
         except Exception as exc:
             messagebox.showerror("Import failed", str(exc))
 
@@ -2583,7 +2953,7 @@ class PHQ9App(Tk):
                 run_bundled_cli(["--analysis-export", path], ("pandas", "openpyxl"))
             else:
                 export_analysis_workbook(path)
-            messagebox.showinfo("Analysis export complete", f"Saved normalized workbook to:\n{path}")
+            messagebox.showinfo("Analysis workbook saved", f"Saved the normalized seven-sheet workbook to:\n\n{path}")
         except Exception as exc:
             messagebox.showerror("Analysis export failed", str(exc))
 
@@ -2594,6 +2964,13 @@ class PHQ9App(Tk):
             return
         if datetime.fromisoformat(entry_date).date() > date.today():
             messagebox.showerror("Future date", "Future check-ins are not available.")
+            return
+        if entry_date != self._loaded_checkin_date:
+            messagebox.showinfo(
+                "Load the selected date first",
+                "The date field differs from the check-in currently shown. Load the selected date before saving "
+                "so responses are not applied to the wrong day.",
+            )
             return
         existing = fetch_day_data(entry_date)
         saved = []
@@ -2625,7 +3002,11 @@ class PHQ9App(Tk):
         self.load_checkin_date(confirm_unsaved=False)
         self.show_checkin_details()
         action = "Updated existing" if existing["assessments"] else "Saved new"
-        messagebox.showinfo("Today's Check-In", f"{action} {', '.join(saved)} check-in for {entry_date}. You can add optional details now or choose Not Right Now.")
+        messagebox.showinfo(
+            "Check-in recorded",
+            f"{action} {', '.join(saved)} check-in for {entry_date}. The core check-in is saved. "
+            "Optional details can be added now or skipped.",
+        )
 
     def save_optional_details(self):
         entry_date = parse_date(self.date_var.get())
@@ -2683,7 +3064,7 @@ class PHQ9App(Tk):
                 )
             else:
                 generate_report(start, end, target)
-            messagebox.showinfo("Report saved", f"Saved PDF report.\n\n{target}")
+            messagebox.showinfo("PDF report saved", f"Saved the full-history clinician discussion report to:\n\n{target}")
         except Exception as exc:
             messagebox.showerror("Report failed", str(exc))
 

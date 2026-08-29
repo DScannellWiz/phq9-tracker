@@ -1,5 +1,5 @@
-Current as of: 2026-08-22
-Last substantive update: 2026-08-22
+Current as of: 2026-08-28
+Last substantive update: 2026-08-28
 
 BUG: Report generation dependency detection
 
@@ -244,9 +244,21 @@ Validation:
 
 ---
 
-## Future enhancement: Chart value discoverability
+## Iteration 008.1: Chart accessibility and micro-UX
 
-Status: Reporting clarity completed in Iteration 007.2; chart work remains planned for Iteration 008.1
+Status: Implemented and automated; Daniel's interactive source-GUI validation pending
 
-- Iteration 007.2 restored the fuller clinician-report explanation and preserved complete selected-period journal text.
-- Make chart point dates and exact scores directly discoverable through click or hover callouts as an accessibility and readability improvement.
+Resolved:
+
+- Review chart points now expose date, series, and exact score by hover or click, with a larger bounded hit target and keyboard point navigation.
+- Valid changed dates auto-load only when no unsaved edit could be lost. Unsafe focus changes preserve the current edits, and Today's Check-In cannot save visible responses to a date that has not been loaded.
+- Loaded-date statuses, unsaved-change choices, permanent-deletion confirmations, and save/export messages state their consequence more clearly.
+- PHQ-9 item 9 report context uses the latest 14-day window, discloses recent check-in coverage, labels older responses as historical without inferring current risk, and omits the item 9 prompt when no above-zero response exists.
+- Button padding, Review action widths, notebook tabs, table rows, and default typography use more consistent readable sizing.
+
+Validation:
+
+- Nine focused Iteration 008.1 tests were added.
+- All 50 automated tests pass with isolated fictional databases in the dependency-complete environment; PDF and normalized workbook paths ran without skips.
+- Source and test compilation passes.
+- Manual source-GUI and packaged-release validation remain open. Scalable text/interface sizing remains a future enhancement rather than part of this focused iteration.

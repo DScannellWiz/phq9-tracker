@@ -1,5 +1,5 @@
-Current as of: 2026-08-22
-Last substantive update: 2026-08-22
+Current as of: 2026-08-28
+Last substantive update: 2026-08-28
 
 # ADR 0005: Conversation-Focused Reporting
 
@@ -39,3 +39,11 @@ A concise report is easier to use during a limited clinical conversation. Separa
 - Review is the single access point for both outputs: **Generate PDF** for a conversation aid and **Analysis Workbook** for independent analysis.
 - The clinician PDF automatically uses the full available assessment-history range and no longer creates a companion CSV.
 - The legacy combined CSV/XLSX exporter was retired. The normalized seven-sheet Analysis Workbook is the sole data-export format.
+
+## Iteration 008.1 Item 9 Context
+
+- PHQ-9 item 9 discussion language distinguishes the most recent 14 calendar days ending on the report end date from older selected-history responses.
+- A recent above-zero response may lead the Conversation Starters because it is recent recorded context. The prompt discloses the number of recorded PHQ-9 check-ins out of 14 calendar days and treats missing days as missing information.
+- An older above-zero response remains available as neutral historical context, identifies its most recent recorded date, and explicitly does not establish or indicate current risk.
+- When no above-zero item 9 response exists in the selected history, the item 9 context and prompt are omitted.
+- These statements organize recorded information for discussion. They do not perform a safety assessment, diagnose, or recommend treatment.

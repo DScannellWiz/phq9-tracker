@@ -1,5 +1,5 @@
-Current as of: 2026-08-22
-Last substantive update: 2026-08-22
+Current as of: 2026-08-28
+Last substantive update: 2026-08-28
 
 # Mental Health Tracker
 
@@ -19,7 +19,10 @@ The project began as a PHQ-9 tracker and now supports a reusable multi-assessmen
 - An accessible How Scoring Works explanation in the app and clinician report.
 - SQLite local storage under the project `data` folder during source runs.
 - A separate Review experience with concise, deterministic symptom summaries, recent charts, current/previous ketamine-cycle views, and long-term trends.
+- Discoverable Review chart values: hover or click a point for its date and exact score, or focus a chart and use Left/Right, Enter, and Escape.
+- Guarded date-field auto-loading when no unsaved work can be lost; Enter also loads the date explicitly.
 - Compact clinician discussion reports centered on scoring context, recorded patterns, treatment context, complete user-authored journal text, and neutral conversation prompts. Reports expand as needed rather than truncating journal entries.
+- Recency-aware PHQ-9 item 9 report context that discloses recent 14-day coverage, keeps older responses explicitly historical, and does not infer current risk from older data.
 - A normalized XLSX analysis workbook with Daily Assessments, Item Responses, Notes, Treatment Events, Treatment Cycles, Metadata, and a derived Daily Summary.
 - Treatment event tracking.
 - Automated tests for scoring, migration, exports, and report behavior where local dependencies are available.
@@ -40,10 +43,12 @@ For source runs, execute commands from the project root so the app can locate `d
 1. Open the application.
 2. Use **Today's Check-In** to enter PHQ-9 and GAD-7 responses for the day.
 3. Use **Previous Day** or **Next Day** for short-distance catch-up. Month and year boundaries are handled automatically, existing entries load automatically, and future check-ins are blocked.
-4. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Review information is intentionally kept out of Today's Check-In.
+4. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Hover or click a chart point to see its exact date and score. Review information is intentionally kept out of Today's Check-In.
 5. Use **History / Manage Entries** to move one day at a time, edit existing records, or add another legitimate event to a day that already has records. Empty dates remain read-only and direct you back to Today's Check-In for new daily recording.
 6. Select any relevant event checkboxes in Today's Check-In, or use **Add Custom Event** for another event type.
 7. From **Review**, use **Generate PDF** when you want a readable full-history conversation aid. Use **Analysis Workbook** when you want normalized data for filtering, sorting, pivoting, or independent analysis.
+
+Useful keyboard actions are intentionally limited: press Enter in a Today or History date field to load that date, F5 to refresh local Review data, and Left/Right, Enter, or Escape while a chart has focus to inspect or clear point callouts.
 
 Daily check-ins intentionally do not copy or autofill previous responses. Each symptom should be considered independently to encourage mindful reflection and higher-quality recorded data.
 

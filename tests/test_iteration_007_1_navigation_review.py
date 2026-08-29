@@ -89,7 +89,8 @@ class Iteration0071EmptyHistoryTests(unittest.TestCase):
         self.assertEqual(app.history_record_count(day_data), 0)
         self.assertEqual(
             app.history_status_text("2026-07-31", day_data),
-            "Nothing is recorded for 2026-07-31. History only manages existing records.",
+            "No existing records for 2026-07-31. History can edit only dates that already contain "
+            "a check-in, note, or treatment event.",
         )
 
     def test_existing_records_are_loaded_and_counted(self):
@@ -100,7 +101,10 @@ class Iteration0071EmptyHistoryTests(unittest.TestCase):
 
         self.assertIn("phq9", day_data["assessments"])
         self.assertEqual(history_count := app.history_record_count(day_data), 3)
-        self.assertEqual(app.history_status_text("2026-07-31", day_data), f"Loaded {history_count} record(s) for 2026-07-31.")
+        self.assertEqual(
+            app.history_status_text("2026-07-31", day_data),
+            f"Showing {history_count} existing records for 2026-07-31. Edits apply only to this loaded date.",
+        )
 
 
 class Iteration0071ChartLayoutTests(unittest.TestCase):
