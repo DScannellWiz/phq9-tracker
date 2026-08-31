@@ -41,8 +41,12 @@ except Exception:
 
 try:
     from openpyxl import load_workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
 except Exception:
     load_workbook = None
+    Alignment = None
+    Font = None
+    PatternFill = None
 
 try:
     from reportlab.lib import colors
@@ -79,7 +83,6 @@ except Exception:
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parents[1] if APP_DIR.parent.name == "src" else APP_DIR.parent
 DATA_DIR = PROJECT_ROOT / "data"
-EXPORTS_DIR = PROJECT_ROOT / "exports"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 ICON_PATH = PROJECT_ROOT / "packaging" / "assets" / "PHQ9_Tracker.ico"
 
@@ -97,12 +100,64 @@ def default_db_path() -> Path:
     return DATA_DIR / "phq9_tracker.sqlite"
 
 
+def generated_output_dir(create: bool = False) -> Path:
+    """Return the one local folder used for both clinician outputs."""
+    if getattr(sys, "frozen", False):
+        if os.environ.get("PHQ9_TRACKER_PORTABLE") == "1":
+            base_dir = Path(sys.executable).resolve().parent
+        else:
+            local_app_data = os.environ.get("LOCALAPPDATA")
+            base_dir = Path(local_app_data) / "PHQ9Tracker" if local_app_data else Path(sys.executable).resolve().parent
+        output_dir = base_dir / "reports"
+    else:
+        output_dir = REPORTS_DIR
+    if create:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def next_available_output_path(filename: str) -> Path:
+    """Choose a non-destructive path in the common output folder."""
+    output_dir = generated_output_dir(create=True)
+    candidate = output_dir / filename
+    suffix_number = 2
+    while candidate.exists():
+        candidate = output_dir / f"{Path(filename).stem}_{suffix_number}{Path(filename).suffix}"
+        suffix_number += 1
+    return candidate
+
+
+def open_in_default_application(path: Path) -> None:
+    """Open a local file or folder with its Windows default application."""
+    startfile = getattr(os, "startfile", None)
+    if startfile is None:
+        raise OSError("Windows could not open this location automatically.")
+    startfile(str(path))
+
+
+def offer_to_open_generated_file(path: Path, output_name: str) -> None:
+    """Offer to open a successfully saved output without changing save success."""
+    if not messagebox.askyesno(
+        f"{output_name} saved",
+        f"Saved successfully to:\n\n{path}\n\nOpen it now?",
+    ):
+        return
+    try:
+        open_in_default_application(path)
+    except OSError as exc:
+        messagebox.showwarning(
+            f"{output_name} saved",
+            f"The file was saved successfully, but Windows could not open it automatically.\n\nSaved path:\n{path}\n\n{exc}",
+        )
+
+
 DB_PATH = default_db_path()
 BUNDLED_PYTHON = Path(os.environ["PHQ9_TRACKER_BUNDLED_PYTHON"]) if os.environ.get("PHQ9_TRACKER_BUNDLED_PYTHON") else None
 DISCLAIMER = "This report is for discussion with a licensed clinician and is not a diagnosis."
 DAILY_SCORE_LABEL = "Daily Severity Score"
 FREQUENCY_SCORE_LABEL = "14-Day Symptom Frequency Score"
-ANALYSIS_WORKBOOK_SCHEMA_VERSION = "1.0"
+ANALYSIS_WORKBOOK_SCHEMA_VERSION = "1.1"
+COMPACT_SPINBOX_PADDING = (2, 0)
 SCORING_EXPLANATION = """Mental Health Tracker calculates two related but different measurements.
 
 Daily Severity Score
@@ -389,6 +444,40 @@ def calculate_symptom_frequency_score_for_window(
         entries_included=len(window_entries),
         calendar_days=(end_dt - start_dt).days + 1,
     )
+
+
+def build_14_day_item_profile(end_date: str) -> list[dict[str, object]]:
+    """Build one derived current-window record per PHQ-9 and GAD-7 item."""
+    window_end = datetime.fromisoformat(end_date).date()
+    window_start = (window_end - timedelta(days=13)).isoformat()
+    records: list[dict[str, object]] = []
+    for assessment_id in ASSESSMENT_ORDER:
+        definition = ASSESSMENTS[assessment_id]
+        entries = fetch_assessment_entries(assessment_id, window_start, end_date)
+        score = calculate_symptom_frequency_score_for_window(
+            entries,
+            window_start,
+            end_date,
+            definition.item_count,
+            assessment_id,
+        )
+        for item_index, item_label in enumerate(definition.item_labels):
+            records.append(
+                {
+                    "profile_record_id": f"profile:{end_date}:{assessment_id}:item:{item_index + 1}",
+                    "window_start": window_start,
+                    "window_end": end_date,
+                    "assessment_id": assessment_id,
+                    "assessment_name": definition.display_name,
+                    "item_number": item_index + 1,
+                    "item_label": item_label,
+                    "symptom_present_days": score.item_counts[item_index],
+                    "recorded_day_coverage": score.entries_included,
+                    "calendar_days": score.calendar_days,
+                    "frequency_score": score.item_scores[item_index],
+                }
+            )
+    return records
 
 
 def compare_recent_14_day_periods(
@@ -1333,12 +1422,13 @@ def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
         {"metadata_key": "event_relationship", "metadata_value": "treatment_event_record_id", "description": "Treatment Events retain the stable SQLite event ID as event:<id>."},
         {"metadata_key": "cycle_relationship", "metadata_value": "anchor_treatment_event_record_id", "description": "Treatment Cycles reference the first recorded ketamine event on each anchor date."},
         {"metadata_key": "daily_severity_score", "metadata_value": "sum of item responses on one check-in", "description": "Measures recorded symptom severity for a single assessment date."},
-        {"metadata_key": "14_day_frequency_score", "metadata_value": "derived by calendar window", "description": "Counts symptom-present days and is intentionally not repeated as a daily raw field."},
+        {"metadata_key": "14_day_frequency_score", "metadata_value": "derived by calendar window", "description": "The 14-Day Item Profile contains one current-window derived record per assessment item."},
         {"metadata_key": "missing_checkins", "metadata_value": "missing information", "description": "A day without a check-in is not evidence that symptoms were absent."},
         {"metadata_key": "daily_summary_authority", "metadata_value": "derived", "description": "Daily Summary is a convenience view; normalized worksheets remain authoritative."},
         {"metadata_key": "privacy_notice", "metadata_value": "local sensitive data", "description": "This workbook may contain PHI. Store and share it deliberately."},
     ]
 
+    profile_end = max((str(row["entry_date"]) for row in assessments), default=date.today().isoformat())
     return {
         "Daily Assessments": daily_assessments,
         "Item Responses": item_responses,
@@ -1347,6 +1437,7 @@ def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
         "Treatment Cycles": treatment_cycle_rows,
         "Metadata": metadata,
         "Daily Summary": daily_summary,
+        "14-Day Item Profile": build_14_day_item_profile(profile_end),
     }
 
 
@@ -1364,11 +1455,27 @@ def export_analysis_workbook(path: str) -> None:
         "Treatment Cycles": ["treatment_cycle_record_id", "anchor_treatment_event_record_id", "cycle_number", "cycle_start_date", "cycle_end_date", "is_current_cycle"],
         "Metadata": ["metadata_key", "metadata_value", "description"],
         "Daily Summary": ["daily_record_id", "entry_date", "assessment_record_ids", "phq9_daily_severity_score", "phq9_severity_category", "gad7_daily_severity_score", "gad7_severity_category", "note_record_id", "treatment_event_record_ids", "treatment_event_count", "ketamine_recorded", "therapy_recorded", "medication_change_recorded"],
+        "14-Day Item Profile": ["profile_record_id", "window_start", "window_end", "assessment_id", "assessment_name", "item_number", "item_label", "symptom_present_days", "recorded_day_coverage", "calendar_days", "frequency_score"],
     }
     workbook_data = _analysis_workbook_data()
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         for sheet_name, columns in sheet_columns.items():
-            pd.DataFrame(workbook_data[sheet_name], columns=columns).to_excel(writer, index=False, sheet_name=sheet_name)
+            frame = pd.DataFrame(workbook_data[sheet_name], columns=columns)
+            frame.to_excel(writer, index=False, sheet_name=sheet_name)
+            worksheet = writer.sheets[sheet_name]
+            worksheet.freeze_panes = "A2"
+            worksheet.auto_filter.ref = worksheet.dimensions
+            for cell in worksheet[1]:
+                cell.font = Font(bold=True, color="172033")
+                cell.fill = PatternFill(fill_type="solid", fgColor="E8EEF5")
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+            for column_index, column_name in enumerate(columns, start=1):
+                values = [column_name, *("" if value is None else str(value) for value in frame[column_name].tolist())]
+                width = min(max(len(value) for value in values) + 2, 48)
+                column_letter = worksheet.cell(row=1, column=column_index).column_letter
+                worksheet.column_dimensions[column_letter].width = width
+                for cell in worksheet[column_letter][1:]:
+                    cell.alignment = Alignment(vertical="top", wrap_text=True)
 
 
 def python_supports_modules(python_path: Path, modules: tuple[str, ...]) -> bool:
@@ -1474,6 +1581,8 @@ def normalize_event_type(event_type: str) -> str:
     text = (event_type or "").strip().lower()
     if "ketamine" in text:
         return "Ketamine"
+    if "physical therapy" in text:
+        return "Physical Therapy"
     if "therapy" in text:
         return "Therapy"
     if "dose increase" in text:
@@ -1680,6 +1789,7 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
         *symptom_highlights("phq9", comparison_phq_entries, end, limit=2),
         *symptom_highlights("gad7", comparison_gad_entries, end, limit=2),
     ]
+    item_profile = build_14_day_item_profile(end)
 
     styles = getSampleStyleSheet()
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -1778,6 +1888,34 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
                 q9_summary,
                 styles["BodyText"],
             )
+        )
+
+    story.append(PageBreak())
+    story.append(Paragraph("Current 14-Day Item Profile", styles["Heading1"]))
+    story.append(
+        Paragraph(
+            f"Window: {item_profile[0]['window_start']} to {end}. Present days count recorded responses above zero; "
+            "coverage is recorded check-ins out of 14 calendar days. Missing days remain missing information.",
+            styles["BodyText"],
+        )
+    )
+    for assessment_id in ASSESSMENT_ORDER:
+        profile_rows = [row for row in item_profile if row["assessment_id"] == assessment_id]
+        add_pdf_table(
+            story,
+            ASSESSMENTS[assessment_id].display_name,
+            [["Item", "Present days", "Coverage", "Score (0-3)"]]
+            + [
+                [
+                    f"{row['item_number']}. {row['item_label']}",
+                    str(row["symptom_present_days"]),
+                    f"{row['recorded_day_coverage']} of {row['calendar_days']}",
+                    str(row["frequency_score"]),
+                ]
+                for row in profile_rows
+            ],
+            col_widths=[4.05 * inch, 0.9 * inch, 0.85 * inch, 0.9 * inch],
+            wrap_columns={0, 1, 2, 3},
         )
 
     story.append(PageBreak())
@@ -2078,6 +2216,7 @@ REVIEW_ACTION_LABELS = (
     "Import Spreadsheet",
     "Generate PDF",
     "Analysis Workbook",
+    "Open Reports Folder",
 )
 
 CHART_INTERACTION_HELP = (
@@ -2119,7 +2258,7 @@ class PHQ9App(Tk):
         style.configure(".", font=("Segoe UI", 10))
         style.configure("TNotebook.Tab", padding=(12, 7))
         style.configure("Treeview", rowheight=26)
-        style.configure("TSpinbox", padding=3)
+        style.configure("TSpinbox", padding=COMPACT_SPINBOX_PADDING, arrowsize=14)
         style.configure("TCombobox", padding=3)
 
     def create_menu(self):
@@ -2182,6 +2321,7 @@ class PHQ9App(Tk):
             "Import Spreadsheet": self.import_file,
             "Generate PDF": self.create_report,
             "Analysis Workbook": self.export_analysis_file,
+            "Open Reports Folder": self.open_reports_folder,
         }
         for index, label in enumerate(REVIEW_ACTION_LABELS):
             Button(actions, text=label, command=action_commands[label], width=18).pack(
@@ -2939,23 +3079,27 @@ class PHQ9App(Tk):
             messagebox.showerror("Import failed", str(exc))
 
     def export_analysis_file(self):
-        path = filedialog.asksaveasfilename(
-            title="Export analysis-ready workbook",
-            initialdir=str(EXPORTS_DIR),
-            initialfile=f"Mental_Health_Tracker_Analysis_{date.today().isoformat()}.xlsx",
-            defaultextension=".xlsx",
-            filetypes=[("Excel workbook", "*.xlsx")],
-        )
-        if not path:
-            return
         try:
+            path = next_available_output_path(f"Mental_Health_Tracker_Analysis_{date.today().isoformat()}.xlsx")
             if pd is None:
-                run_bundled_cli(["--analysis-export", path], ("pandas", "openpyxl"))
+                run_bundled_cli(["--analysis-export", str(path)], ("pandas", "openpyxl"))
             else:
-                export_analysis_workbook(path)
-            messagebox.showinfo("Analysis workbook saved", f"Saved the normalized seven-sheet workbook to:\n\n{path}")
+                export_analysis_workbook(str(path))
+            offer_to_open_generated_file(path, "Analysis workbook")
         except Exception as exc:
             messagebox.showerror("Analysis export failed", str(exc))
+
+    def open_reports_folder(self):
+        output_dir = None
+        try:
+            output_dir = generated_output_dir(create=True)
+            open_in_default_application(output_dir)
+        except OSError as exc:
+            location = str(output_dir) if output_dir is not None else "The configured reports folder"
+            messagebox.showwarning(
+                "Reports folder unavailable",
+                f"Windows could not open the reports folder automatically.\n\nFolder path:\n{location}\n\n{exc}",
+            )
 
     def save_entry(self):
         entry_date = parse_date(self.date_var.get())
@@ -3047,24 +3191,16 @@ class PHQ9App(Tk):
         except ValueError as exc:
             messagebox.showinfo("Report unavailable", str(exc))
             return
-        target = filedialog.asksaveasfilename(
-            title="Save clinician report PDF",
-            initialdir=str(REPORTS_DIR),
-            initialfile=f"Mental_Health_Tracker_Report_{start}_to_{end}.pdf",
-            defaultextension=".pdf",
-            filetypes=[("PDF report", "*.pdf")],
-        )
-        if not target:
-            return
         try:
+            target = next_available_output_path(f"Mental_Health_Tracker_Report_{start}_to_{end}.pdf")
             if colors is None or PILImage is None:
                 run_bundled_cli(
-                    ["--report-pdf", target],
+                    ["--report-pdf", str(target)],
                     ("reportlab", "PIL"),
                 )
             else:
-                generate_report(start, end, target)
-            messagebox.showinfo("PDF report saved", f"Saved the full-history clinician discussion report to:\n\n{target}")
+                generate_report(start, end, str(target))
+            offer_to_open_generated_file(target, "PDF report")
         except Exception as exc:
             messagebox.showerror("Report failed", str(exc))
 

@@ -1,5 +1,5 @@
-Current as of: 2026-08-28
-Last substantive update: 2026-08-28
+Current as of: 2026-08-30
+Last substantive update: 2026-08-30
 
 # Development Journal
 
@@ -205,6 +205,144 @@ Review of current clinician-facing outputs confirmed two presentation problems w
 - Keep both valid 2026-08-11 records unchanged and add regression coverage for distinct same-day event types with the same description.
 - Group these closely related clinician-output fidelity corrections into planned Iteration 008.2. No application code changes are part of this documentation update.
 
+## August 30, 2026: Iteration 008.1 Source-GUI Validation and Iteration 008.2 Implementation
+
+### 008.1 walkthrough outcome
+
+Daniel completed the interactive source-GUI walkthrough after several days of ordinary use. Chart dates and scores appeared correctly correlated; keyboard chart navigation worked; date changes worked; the unsaved-change warning worked; the overall look and feel was acceptable; and no general-use issues were noticed. This closes Iteration 008.1's source-GUI gate, but it does not establish packaged validation.
+
+Daniel recorded one non-blocking cosmetic observation: the up/down arrows within each PHQ-9 and GAD-7 Spinbox had an awkward internal gap. He preferred each arrow pair to read as one compact control, with spacing between questionnaire items instead.
+
+### 008.2 implementation decisions
+
+- Restore one compact current 14-day item profile in the PDF and add one normalized **14-Day Item Profile** workbook sheet. One record per assessment item is cleaner than repeating current-window derived values across daily item-response rows.
+- Reuse the existing explicit 14-calendar-day scoring function. Do not change formulas, schema, stored responses, migrations, or missing-day guidance.
+- Match Physical Therapy before the broader Therapy display category. Preserve stored event types and never infer type from a shared description.
+- Use `reports` as the one generated-output folder for both canonical outputs. Source runs use the repository `reports` folder; portable runs use a `reports` folder beside the executable.
+- Generate collision-safe filenames automatically, offer to open each successfully saved file, and add **Open Reports Folder** as the approved fifth Review action. An external-open failure must not undo or obscure generation success.
+- Defer user-defined output destinations. Persistent paths, permissions, removable drives, and settings behavior would add a separate configuration and release-validation problem immediately before Alpha.
+- Reduce Spinbox internal padding and retain inter-item spacing. Do not replace widgets or redesign the questionnaire.
+
+### Validation and consequences
+
+Focused tests cover PHQ-9/GAD-7 item counts, complete and incomplete coverage, established frequency thresholds, PDF/workbook presence, distinct same-day Therapy/Physical Therapy events with the same description, common-folder routing and creation, portable containment, non-overwriting filenames, optional open behavior, graceful failures, the fifth Review action, and compact Spinbox padding. The full suite, compilation, and representative fictional PDF/workbook validation are recorded in the Iteration 008.2 document and build notes. No production database or real user output was used.
+
+## August 29, 2026: Closed Alpha Program Planning and Development Provenance
+
+### Context
+
+With the Windows portable workflow validated and the application approaching a small external test, the project needed a deliberate closed-alpha process rather than an informal file handoff. The program must test usability, reliability, data integrity, and report usefulness without weakening the local-first boundary or turning Daniel into the custodian of participant health information.
+
+Daniel also asked that the project record how the work is actually produced. He defines what the application should accomplish and evaluates whether it meets the need. He relies on the assistant to handle software-development and process implementation because trying to learn software development concurrently with the project's other demands would add enough friction that he would likely stop the project. This is project provenance and a practical division of labor, not a deficiency. Daniel remains the final reviewer for product direction, privacy, clinical framing, and release decisions.
+
+### Decisions
+
+- Draft a versioned Closed Alpha Test Plan before preparing invitations or distributing a build.
+- Target Friday, September 4, 2026 for the start of a two-week Windows-only test using a portable ZIP and an initial cohort of approximately 5-8 deliberately recruited testers.
+- Focus the first cycle on usability, reliability, data integrity, and report usefulness; use structured issue intake plus short first-use, midpoint, and final surveys.
+- Preserve local ownership of databases, reports, and exports. Do not collect participant health data by default, and direct testers not to place assessment responses, journal text, treatment details, or identifiable reports in feedback.
+- Use tester IDs such as `MHT-A001`, keep any contact mapping separate, and provide direct support limited to software use and defect reporting.
+- State that the alpha is pre-release, not diagnostic or treatment software, does not provide monitoring or emergency response, and should not be the only repository for important health information.
+- Let participants stop at any time and delete their extracted local files, with clear warning that deletion is permanent without their own backup.
+- Recruit the first cohort deliberately before broader LinkedIn outreach.
+- Keep clinician review separate and use fictional/sample reports rather than participant reports.
+- Mark eligibility, pseudonymity, real-versus-fictional entry policy, support-channel expectations, compensation, and clinician-track timing as provisional decisions requiring Daniel's approval.
+
+### Documentation and consequences
+
+Alpha Test Plan v0.1 now records the working baseline, privacy and safety boundaries, release controls, schedule, test scenarios, feedback fields, triage levels, evaluation criteria, provisional decisions, and records to retain. This planning step changes documentation only; it does not change application code, authorize distribution, or resolve the separately planned Iteration 008.2 implementation.
+
+## August 29, 2026: Closed Alpha Governance Decisions Finalized
+
+### Context
+
+Daniel reviewed every provisional item in Alpha Test Plan v0.1 and chose a deliberately narrow product-testing model. The program must produce candid evidence about software behavior without asking testers to explain mental-health familiarity, disclose diagnoses, or send anything entered into the tracker. The decision process also examined Maryland's incorporation of the federal human-subject framework and the Common Rule definition of research.
+
+Daniel explicitly understands that assistant discussion is not legal advice and does not interpret it as legal advice. Because paid legal review is not financially practical, he chose to proceed with a documented risk posture: Closed Alpha 1 is designed solely to improve the software and its immediate distribution, documentation, usability, reliability, data integrity, workflows, and generated-output usability. It is not designed to develop knowledge about participants, health, behavior, treatment, assessment results, outcomes, or effects on health.
+
+### Decisions
+
+- Run Closed Alpha 1 from September 4-18, 2026 with 5-8 adults and no financial or material compensation.
+- Recruit for varied software-use perspectives without asking for diagnosis, health history, or an explanation of why a person fits a category. Do not rely entirely on close family; defer broader LinkedIn outreach until the first cohort and process are reviewed.
+- Assign IDs such as `MHT-A001`. Daniel may know identities for communication and support, but GitHub and ordinary project records use IDs. Keep a Daniel-only roster segregated from GitHub and target destruction 30 days after closeout unless a documented administrative need requires otherwise.
+- Let participants enter real, fictional, random, or mixed data locally without asking which. Entered data remains controlled by the participant.
+- Establish a categorical health-data firewall. Feedback is about the software only. Do not request or accept assessment responses, journal entries, treatment or clinician information, generated reports, Analysis Workbooks, databases, screenshots containing entered data, or other medical or health information, even if fictional or created for testing.
+- If prohibited material is received, do not use, analyze, or intentionally retain it, regardless of whether it was sent accidentally or intentionally; delete or destroy it as soon as reasonably practicable after identification and request only non-medical troubleshooting details. Prefer project-created fictional reproduction data.
+- Use Google Forms without file uploads for structured intake and milestone surveys. Put the warning immediately before every free-text field. Use a secured dedicated Google account and Drive with conservative sharing and folder separation; do not store participant health data there.
+- Use `projectmentalhealthtracker@gmail.com` for best-effort software and administrative support, generally targeted within 24-48 hours. It is not continuously monitored or available for clinical, crisis, or emergency support. A tester who encounters a blocker or suspects data loss should stop the affected activity rather than repeatedly retry it.
+- Require a versioned, plain-language Closed Alpha Participation Acknowledgment before software distribution. Do not call it informed consent. Record the version and date accepted for every tester.
+- End the active feedback and support cycle on September 18. Testers may retain or delete the installed alpha and their local data, but later feedback is outside Closed Alpha 1 and fixes or support for an obsolete build are not promised.
+- Defer clinician review until Closed Alpha 1 feedback has been incorporated into a stable candidate report; do not run it concurrently.
+
+### Compliance posture and references
+
+Maryland Health-General § 13-2001 incorporates the federal human-subject framework's definition of research, and § 13-2002 applies federal protections when an activity is research using a human subject. Under 45 C.F.R. § 46.102(l), research is a systematic investigation, including testing and evaluation, designed to develop or contribute to generalizable knowledge. The project documents its software-testing design against that framework while recognizing that this is a project decision and risk posture, not a binding legal determination.
+
+Authoritative references reviewed:
+
+- [Maryland Health-General § 13-2001](https://mgaleg.maryland.gov/2026RS/Statute_Web/ghg/13-2001.pdf)
+- [Maryland Health-General § 13-2002](https://mgaleg.maryland.gov/2026RS/Statute_Web/ghg/13-2002.pdf)
+- [45 C.F.R. § 46.102 (eCFR)](https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-A/part-46/subpart-A/section-46.102)
+- [HHS OHRP: What Is Human Subjects Research?](https://www.hhs.gov/ohrp/education-and-outreach/online-education/human-research-protection-training/lesson-2-what-is-human-subjects-research/index.html)
+
+### Documentation and consequences
+
+Alpha Test Plan v0.2 resolves every provisional decision from v0.1. Closed Alpha Participation Acknowledgment v0.1 establishes the pre-distribution participant-facing gate. ADR 0007 records the durable governance and health-data-firewall decision. README, Roadmap, and Privacy and Data Handling now point to or implement the approved model.
+
+Tester names, the exact application build and hash, and the supporting invitation, Tester Guide, Forms, surveys, issue log, release record, Drive configuration, replacement-build procedure, and closeout message remain operational work. No application code, database, personal data, report, export, or generated health artifact changed in this documentation iteration.
+
+## August 29, 2026: Closed Alpha Tester Guide v0.1 Drafted
+
+### Context
+
+The approved test plan and participation acknowledgment established the program rules, but a participant still needed a short, practical guide from distribution through closeout. The guide had to support safe use without teaching every interface path, because Closed Alpha 1 is intended to reveal whether the application and its own wording are understandable.
+
+Repository inspection confirmed the current portable behavior: the supplied batch launcher enables portable mode; first launch creates `phq9_tracker.sqlite` beside the executable in the extracted folder; the application does not intentionally upload entered content; and PDF/workbook actions use Windows save dialogs, so generated outputs remain at locations chosen by the tester rather than a guaranteed portable subfolder.
+
+### Decisions
+
+- Keep the participant journey concise: safe extraction and launch, local-data understanding, one persisted first-use check-in, natural use, midpoint feedback, later Review/output exploration, and final closeout.
+- Repeat the intent-neutral health-data firewall and make all problem reporting software-only. Do not accept files or entered content, and use no screenshot by default.
+- Explain tester IDs only as needed for feedback and support; do not expose private-roster operating details beyond the already approved participant acknowledgment.
+- Use a closed-application copy of the entire extracted folder as the simplest participant backup instruction. Generated outputs saved elsewhere require separate backup.
+- Describe deletion according to portable behavior: close the application, delete the extracted folder, and separately delete locally generated outputs saved elsewhere.
+- Leave the final application version/source revision, ZIP filename/size/hash, supported Windows versions/architecture, download URL, Google Form URLs, clean-Windows launcher/security-prompt check, and frozen-package backup/deletion/replacement instructions as visible release-readiness placeholders rather than guessing.
+- Add a small alpha-document index and link the guide from the README, roadmap, approved plan, and governance ADR.
+
+### Validation and consequences
+
+The guide was checked against Alpha Test Plan v0.2, Closed Alpha Participation Acknowledgment v0.1, the portable build script, database-path selection, Review action labels, and PDF/workbook save behavior. A text audit checked required dates, safety boundaries, support expectations, milestones, reporting fields, placeholders, and prohibited terminology. No application code, test code, database, report, export, personal data, or health information changed.
+
+Closed Alpha Tester Guide v0.1 remains a draft and must not be distributed until every release-readiness placeholder is replaced and the complete instructions are exercised against the frozen ZIP on a clean Windows environment.
+
+## August 30, 2026: Closed Alpha Tester Guide Participant-Facing Cleanup
+
+### Context
+
+Daniel approved removing internal and nice-to-have release-control details from the participant-facing Tester Guide. The guide should contain only information necessary for safe participation and useful software testing. Internal build identification, integrity, clean-environment validation, and replacement-readiness controls remain required, but they belong in the Alpha Test Plan and release-readiness records rather than in tester instructions.
+
+### Decisions
+
+- Limit the guide's Release Information section to the individually supplied tester ID; application version/build identifier; approved ZIP filename and download URL; tester-relevant Windows compatibility; and first-use, routine feedback, midpoint, and final Form URLs.
+- Remove participant-facing source-revision, ZIP-size, SHA-256, clean-Windows verification, and internal backup/deletion/replacement-readiness placeholders. Testers are not asked to verify a hash.
+- Preserve the statement that Forms do not accept uploads and the routing distinction between Forms for routine feedback or milestones and email for access, administrative questions, blockers, or suspected data loss.
+- Remove internal checklist status language from the launch and backup passages while preserving the verified launcher name, database-handling warning, and instruction to contact support before moving data into another build.
+- Keep the internal release gates in Alpha Test Plan v0.2 unchanged and clarify there that the participant guide's substantive content is ready to freeze after its remaining tester-facing values are supplied and confirmed.
+
+### Validation and consequences
+
+A focused text review confirmed that the removed terms no longer appear in the Tester Guide, that all nine approved tester-facing Release Information fields remain, and that the privacy, local-data, backup, support, testing, reporting, safety, and closeout guidance is unchanged except for the removal of internal status wording. Markdown whitespace and the exact changed-file inventory were also checked. No application code, test code, database, report, export, personal data, or health information changed.
+
 ## Ongoing Journal Practice
 
 Future iteration entries should capture the context that prompted the work, the decisions made, meaningful alternatives that were rejected or deferred, validation performed, consequences, and lessons learned. Significant product or architectural decisions should also be recorded or amended in `docs/decisions/`.
+
+## August 31, 2026: Closed Alpha 1 Candidate Packaging
+
+Daniel's August 30 source-GUI walkthrough closed Iteration 008.2: both output types passed repeat-generation/open-prompt checks, the common reports folder and real outputs were acceptable, Spinboxes were improved, and the 008.1 sanity check remained good. He separately deferred a future Treatment Cycles chart that overlays the current ketamine cycle and two prior cycles in three colors; no such feature was added to this release.
+
+Candidate `0.3.0-alpha.1` was built from the approved uncommitted worktree based on `4f4afa7eb2046b882325b8ada6df4690d9d4a854`. Compilation and 59/59 tests passed. The first package was rejected when it exposed broken automatic Tcl/Tk discovery. The release build was corrected to bundle the required Tkinter/Tcl/Tk runtime explicitly, then rebuilt as `PHQ9Tracker-Portable-0.3.0-alpha.1.zip`.
+
+The rebuilt archive was database-free. Portable-mode startup created a blank database beside the executable; the exact packaged executable passed fictional persistence, Review/chart/keyboard, guarded-date, unsaved-change, History/manage, double PDF/workbook generation, collision-safe naming, and output inspection. PDF and workbook content passed structural and rendered visual checks. The full desktop GUI pass used installed-mode LocalAppData because the desktop-control path could not directly invoke the batch launcher; portable containment was verified separately by startup behavior and automated coverage. The candidate is locally validated but not distributed. Clean-Windows launcher/security validation, Google completion, tester administration, final dry run, and Daniel's go/no-go remain open.
+
+Daniel then independently checked the actual candidate ZIP on August 31 from his Windows development workstation. The previously reported `%LOCALAPPDATA%\PHQ9Tracker` validation folder was already absent. He manually extracted `PHQ9Tracker-Portable-0.3.0-alpha.1.zip`, launched `PHQ9Tracker.exe` directly from the extracted folder, and launched `Launch Portable Mental Health Tracker.bat`; both opened successfully with a blank database. This owner validation closes the earlier local cleanup uncertainty and supplies direct evidence for both extracted launch paths. It remains distinct from a separate clean-Windows validation, so the clean-environment and Windows security-prompt gate stays open.

@@ -1,5 +1,5 @@
-Current as of: 2026-08-28
-Last substantive update: 2026-08-28
+Current as of: 2026-08-30
+Last substantive update: 2026-08-30
 
 # ADR 0005: Conversation-Focused Reporting
 
@@ -38,7 +38,7 @@ A concise report is easier to use during a limited clinical conversation. Separa
 
 - Review is the single access point for both outputs: **Generate PDF** for a conversation aid and **Analysis Workbook** for independent analysis.
 - The clinician PDF automatically uses the full available assessment-history range and no longer creates a companion CSV.
-- The legacy combined CSV/XLSX exporter was retired. The normalized seven-sheet Analysis Workbook is the sole data-export format.
+- The legacy combined CSV/XLSX exporter was retired. The normalized Analysis Workbook is the sole data-export format.
 
 ## Iteration 008.1 Item 9 Context
 
@@ -47,3 +47,12 @@ A concise report is easier to use during a limited clinical conversation. Separa
 - An older above-zero response remains available as neutral historical context, identifies its most recent recorded date, and explicitly does not establish or indicate current risk.
 - When no above-zero item 9 response exists in the selected history, the item 9 context and prompt are omitted.
 - These statements organize recorded information for discussion. They do not perform a safety assessment, diagnose, or recommend treatment.
+
+## Iteration 008.2 Fidelity and Output Location
+
+- The PDF includes a compact current 14-day profile for every PHQ-9 and GAD-7 item: symptom-present days, recorded-day coverage out of 14 calendar days, and the established 0-3 frequency score.
+- The Analysis Workbook adds **14-Day Item Profile** as an eighth logical sheet with one derived current-window record per item. Daily responses remain normalized in **Item Responses**, and treatment-event rows remain authoritative.
+- Display normalization preserves Physical Therapy separately from counseling Therapy and never infers event type from description.
+- Both canonical outputs are generated under one local `reports` folder. Portable mode keeps that folder within the extracted application folder.
+- Review offers optional open-after-save behavior and **Open Reports Folder**. Failure to open Windows Explorer or a default application does not change successful generation.
+- User-configurable destinations remain deferred because persistent paths, permissions, removable drives, and settings behavior require a separate design and validation pass.

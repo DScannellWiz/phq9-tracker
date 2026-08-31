@@ -1,5 +1,5 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-01
+Current as of: 2026-08-29
+Last substantive update: 2026-08-29
 
 # Project Origins
 
@@ -18,6 +18,14 @@ The intended division of labor is simple:
 > **The app remembers, the user adds meaning, the clinician interprets.**
 
 This project is a foundation rather than a final answer. Its current assessments, workflows, reports, and platform reflect the needs and decisions that shaped the application so far; they are not the only valid form the idea can take. The founder expects that future users, clinicians, researchers, and developers may adapt or fork the project beyond his own needs while preserving or thoughtfully revisiting its core principles.
+
+## Development Approach
+
+Daniel's role is to define desired outcomes, explain the human problem, evaluate whether the application meets the need, and make final product, privacy, and release decisions. He relies on an AI assistant to translate that direction into software-engineering process, implementation, testing, and durable documentation.
+
+This approach is intentional. Daniel has stated that trying to learn software development at the same time as carrying the project's other work would add enough friction that he would likely stop the project. Recording that fact is not a judgment about ability or a project deficiency. It is part of the provenance: the project exists and continues because product ownership and technical execution are divided in a way that lets Daniel concentrate on outcomes while still retaining final review authority.
+
+The repository is therefore expected to preserve not only code changes but also the conversations, rationale, assumptions, alternatives, validation, and unresolved decisions that shaped them. This record is intended to help a future contributor understand how the project arrived at its current state rather than reconstructing intent from code alone.
 
 ## Historical Note
 

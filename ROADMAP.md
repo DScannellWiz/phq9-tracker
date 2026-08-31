@@ -1,5 +1,5 @@
-Current as of: 2026-08-28
-Last substantive update: 2026-08-28
+Current as of: 2026-08-30
+Last substantive update: 2026-08-30
 
 # Roadmap
 
@@ -150,7 +150,7 @@ Delivered:
 
 ### Iteration 008.1: Chart Accessibility and Micro-UX
 
-Status: Implementation, full automated validation, and fictional PDF text validation complete; Daniel's source-GUI walkthrough and packaged-release validation remain pending.
+Status: Completed after Daniel's 2026-08-30 source-GUI walkthrough. Packaged-release validation remains a separate gate.
 
 Delivered:
 
@@ -163,27 +163,60 @@ Delivered:
 - Applied consistent Segoe UI defaults, roomier notebook tabs, readable table rows, and more consistent button padding and Review action widths without adding a new UI dependency.
 - Preserved scoring, the database schema and records, local-only privacy, complete journal text, and the PDF/Analysis Workbook output contracts.
 - Added nine focused tests. All 50 automated tests pass in the dependency-complete environment, including PDF and workbook paths, and source compilation passes.
+- Daniel confirmed that chart date/score correlation appeared correct, keyboard chart navigation worked, date changes and unsaved-change protection worked, the overall look and feel was acceptable, and several days of ordinary use revealed no general-use issues.
+- A non-blocking internal gap between each Spinbox's up/down arrows was carried into 008.2 as minimal visual polish. The walkthrough did not validate packaged 008.1 behavior.
 
 Deferred:
 
 - User-configurable or scalable text and interface sizing remains a future accessibility enhancement because it requires a broader layout and minimum-size review.
 
-### Iteration 008.2: Clinician Output Information Fidelity - Planned
+### Iteration 008.2: Clinician Output Fidelity and Alpha Output Polish
 
-Status: Planned; documentation only. No application code has been changed for this iteration.
+Status: Complete. Daniel passed the source-GUI walkthrough on August 30, 2026. Closed Alpha candidate `0.3.0-alpha.1` subsequently passed local packaging and fictional packaged validation; distribution remains a separate gate.
 
-Planned scope:
+Delivered:
 
 - Restore a compact current 14-day symptom profile for PHQ-9 and GAD-7 in the clinician-facing outputs. For each item, present the symptom-present day count and recorded-day coverage as appropriate together with the resulting 0-3 **14-Day Symptom Frequency Score**.
 - Reuse the established daily item responses and 14-calendar-day scoring logic. Treat the missing presentation as a regression, not data loss or a scoring-formula defect.
 - Preserve the concise conversation-focused PDF and normalized Analysis Workbook purposes; do not bring back the redundant raw-response tables removed in Iteration 007.
 - Correct clinician-PDF treatment-event labeling so distinct stored types remain distinguishable. In particular, **Physical Therapy** must not be rendered as counseling **Therapy**, even when the two events share a date and description.
 - Add focused regression tests for both assessment types and for two legitimate same-day treatment events with the same description but different stored types. Confirm that the Analysis Workbook preserves the distinct event types.
+- Added a normalized **14-Day Item Profile** sheet with one logical current-window record per assessment item; this avoids repeating derived snapshot fields on daily response rows.
+- Made `reports` the one generated-output folder for PDF and XLSX files. Portable builds keep it inside the extracted application folder; source runs keep it under the repository.
+- Added collision-safe automatic filenames, optional open-after-save prompts, graceful open-failure messages that preserve the saved path, and an **Open Reports Folder** fifth Review action.
+- Tightened Spinbox internal arrow padding while retaining spacing between questionnaire items.
+- Deliberately deferred user-defined output locations because persistent paths, permissions, removable drives, and settings behavior require a separate design and validation pass before Alpha.
 
 Non-goals:
 
 - No database migration, scoring change, record correction, or deletion of the valid 2026-08-11 events.
-- No broader clinician-report redesign or reintroduction of legacy export paths.
+- No broader clinician-report redesign, reintroduction of legacy export paths, user-configurable output destination, or database migration.
+- The Treatment Cycles comparison chart remains unchanged. A future iteration may overlay the current ketamine cycle and the two previous cycles on one chart using three distinct colors.
+
+### Closed Alpha Program - Planning
+
+Status: Alpha Test Plan v0.2 and Closed Alpha Participation Acknowledgment v0.1 establish the approved baseline. Candidate `0.3.0-alpha.1` is locally packaged and validated. The Tester Guide now contains the real build, ZIP filename, and locally established Windows compatibility; download and Form URLs remain pending. Clean-Windows validation, tester selection, Google completion, final dry run, and distribution authorization remain pending.
+
+Working baseline:
+
+- Target a two-week closed alpha from Friday, September 4 through Friday, September 18, 2026.
+- Distribute a validated Windows portable ZIP with a blank local database to an initial deliberately recruited cohort of approximately 5-8 testers.
+- Keep the program free to use, with no financial or material compensation, and focused solely on the software, distribution, documentation, usability, reliability, data integrity, workflows, and generated-output usability.
+- Preserve local-first handling: testers retain and control their own databases, reports, and exports. The program does not request, collect, retain, or analyze participant health data, outcomes, or tracker-entered content, whether real or fictional.
+- Use tester IDs such as `MHT-A001`, a Daniel-only identity roster targeted for destruction 30 days after closeout, Google Forms without file uploads, brief first-use/midpoint/final surveys, and `projectmentalhealthtracker@gmail.com` for software/administrative support only.
+- Allow participants to stop and delete their data at any time, and state that the alpha is not diagnostic/treatment software or the sole repository for important health information.
+- Recruit deliberately before broader LinkedIn outreach.
+- Defer a separate clinician-review track until Closed Alpha 1 feedback is incorporated into a stable candidate report; use only project-created fictional reports when that track begins.
+- Require [Closed Alpha Participation Acknowledgment v0.1](docs/alpha/Closed_Alpha_Participation_Acknowledgment_v0.1.md) before software distribution and record the version and acceptance date for each tester.
+- Use [Closed Alpha Tester Guide v0.1](docs/alpha/Closed_Alpha_Tester_Guide_v0.1.md) for safe minimum onboarding, local-data and backup guidance, milestone activities, software-only problem reporting, support, and closeout. Do not freeze or distribute it until the tester-facing version/build, ZIP filename, compatibility, download URL, and Form URLs are supplied and confirmed against the approved package and Forms.
+
+Remaining alpha-administration work:
+
+- Select the named 5-8-person cohort without requiring diagnosis or health-history disclosure.
+- Secure the dedicated Google account and implement conservative Drive separation, restricted roster access, Forms without uploads, and warnings immediately before free-text fields.
+- Supply and confirm the Tester Guide's approved download URL and Google Form URLs; re-confirm compatibility during the clean-Windows dry run.
+- Prepare and validate the invitation, Forms, milestone surveys, issue log, release record, replacement-build procedure, and closeout message.
+- Record the exact alpha application version, source revision, release filename, and SHA-256 hash, then complete a clean-Windows dry run before distribution.
 
 ## Security and Privacy
 

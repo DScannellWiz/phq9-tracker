@@ -4,6 +4,7 @@ data/*
 !data/README.md
 reports/*
 !reports/.gitkeep
+# Legacy location retained as ignored scaffolding; the app no longer writes new workbooks here.
 exports/*
 !exports/.gitkeep
 logs/

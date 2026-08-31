@@ -34,6 +34,7 @@ class NormalizedAnalysisWorkbookTests(unittest.TestCase):
         app.upsert_assessment_entry("gad7", "2026-08-01", [1, 1, 0, 0, 1, 0, 0], notes=note_text, note_tag="Other")
         app.add_event("2026-08-01", "Therapy", "Synthetic morning session", dedupe=False)
         app.add_event("2026-08-01", "Therapy", "Synthetic evening session", dedupe=False)
+        app.add_event("2026-08-01", "Physical Therapy", "Shared synthetic description", dedupe=False)
         app.add_event("2026-08-02", "Ketamine infusion", "Synthetic cycle anchor", dedupe=False)
         app.upsert_entry("2026-08-03", [1] * 9)
 
@@ -49,10 +50,13 @@ class NormalizedAnalysisWorkbookTests(unittest.TestCase):
             "Treatment Cycles",
             "Metadata",
             "Daily Summary",
+            "14-Day Item Profile",
         ]
         self.assertEqual(workbook.sheetnames, expected_sheets)
         for worksheet in workbook.worksheets:
             self.assertEqual(list(worksheet.merged_cells.ranges), [])
+            self.assertEqual(worksheet.freeze_panes, "A2")
+            self.assertEqual(worksheet.auto_filter.ref, worksheet.dimensions)
             headers = [cell.value for cell in worksheet[1]]
             self.assertTrue(all(header and " " not in header for header in headers))
 
@@ -79,7 +83,9 @@ class NormalizedAnalysisWorkbookTests(unittest.TestCase):
         event_rows = [dict(zip(event_headers, values)) for values in events_ws.iter_rows(min_row=2, values_only=True)]
         therapy_rows = [row for row in event_rows if row["normalized_event_type"] == "Therapy"]
         self.assertEqual(len(therapy_rows), 2)
-        self.assertEqual(len({row["treatment_event_record_id"] for row in event_rows}), 3)
+        physical_therapy_rows = [row for row in event_rows if row["normalized_event_type"] == "Physical Therapy"]
+        self.assertEqual(len(physical_therapy_rows), 1)
+        self.assertEqual(len({row["treatment_event_record_id"] for row in event_rows}), 4)
 
         metadata = {
             key: value
@@ -87,6 +93,7 @@ class NormalizedAnalysisWorkbookTests(unittest.TestCase):
         }
         self.assertEqual(metadata["workbook_schema_version"], app.ANALYSIS_WORKBOOK_SCHEMA_VERSION)
         self.assertEqual(metadata["daily_summary_authority"], "derived")
+        self.assertGreater(workbook["14-Day Item Profile"].column_dimensions["G"].width, 30)
         workbook.close()
 
     def test_analysis_workbook_rejects_non_xlsx_target(self):

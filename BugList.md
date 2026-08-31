@@ -1,5 +1,5 @@
-Current as of: 2026-08-28
-Last substantive update: 2026-08-28
+Current as of: 2026-08-30
+Last substantive update: 2026-08-30
 
 BUG: Report generation dependency detection
 
@@ -188,7 +188,7 @@ Resolution:
 
 ## BUG: Per-item 14-Day Symptom Frequency Scores are no longer presented
 
-Status: Open; planned for Iteration 008.2
+Status: Resolved in Iteration 008.2
 
 Priority: Medium
 
@@ -204,11 +204,17 @@ Expected:
 - Do not restore the redundant raw-response tables removed in Iteration 007.
 - Preserve the database schema, stored responses, scoring formulas, and the distinct purposes of the readable clinician PDF and analysis-ready workbook.
 
+Resolution:
+
+- Added a compact current-window profile to the clinician PDF and a normalized **14-Day Item Profile** worksheet with one derived record per PHQ-9/GAD-7 item.
+- Each record shows symptom-present days, recorded-day coverage out of 14 calendar days, and the established 0-3 frequency score. Missing days remain identified as missing information.
+- Added complete- and incomplete-coverage regression tests without restoring redundant daily raw-response tables.
+
 ---
 
 ## BUG: Clinician PDF collapses Physical Therapy into Therapy
 
-Status: Open; planned for Iteration 008.2
+Status: Resolved in Iteration 008.2
 
 Priority: High
 
@@ -222,6 +228,11 @@ Expected:
 - Do not infer the event type from a shared description or collapse distinct stored types into one display label.
 - Add regression coverage using two legitimate same-day events with the same description and different stored types.
 - Confirm that the Analysis Workbook continues to preserve the distinct event types while implementing the PDF correction.
+
+Resolution:
+
+- Physical Therapy is matched before the broader Therapy display category, so the PDF preserves the distinction without inferring type from the description.
+- Synthetic regression coverage uses same-day Therapy and Physical Therapy records with the same description and confirms that the PDF and workbook both retain distinct labels.
 
 ---
 
@@ -285,7 +296,7 @@ Validation:
 
 ## Iteration 008.1: Chart accessibility and micro-UX
 
-Status: Implemented and automated; Daniel's interactive source-GUI validation pending
+Status: Completed; source-GUI validation passed on 2026-08-30. Packaged validation remains a release gate.
 
 Resolved:
 
@@ -300,4 +311,27 @@ Validation:
 - Nine focused Iteration 008.1 tests were added.
 - All 50 automated tests pass with isolated fictional databases in the dependency-complete environment; PDF and normalized workbook paths ran without skips.
 - Source and test compilation passes.
-- Manual source-GUI and packaged-release validation remain open. Scalable text/interface sizing remains a future enhancement rather than part of this focused iteration.
+- On 2026-08-30, Daniel confirmed during ordinary source-GUI use that chart dates/scores appeared correctly correlated, keyboard chart navigation worked, date changes worked, the unsaved-change warning worked, the overall look and feel was acceptable, and no general-use issues had appeared over several days.
+- Daniel noted one non-blocking cosmetic issue: the PHQ-9/GAD-7 Spinbox up/down arrows had an awkward internal gap. Iteration 008.2 tightens that padding while retaining spacing between questionnaire items.
+- This walkthrough did not validate a packaged 008.1 build. Packaged portable validation remains open, and scalable text/interface sizing remains a future enhancement.
+
+---
+
+## Iteration 008.2: Clinician output fidelity and Alpha output polish
+
+Status: Resolved. Daniel's source-GUI walkthrough passed on 2026-08-30; candidate `0.3.0-alpha.1` passed local fictional packaged validation on 2026-08-31.
+
+Resolved:
+
+- Restored the compact per-item current 14-day profile for PHQ-9 and GAD-7 in both clinician outputs.
+- Preserved Physical Therapy as distinct from counseling Therapy in the PDF and Analysis Workbook.
+- Unified PDF and workbook generation under the local `reports` folder, including portable-relative containment, collision-safe filenames, optional open-after-save prompts, and **Open Reports Folder** as the approved fifth Review action.
+- Tightened Spinbox internal arrow padding without redesigning the questionnaire or adding a dependency.
+- Preserved scoring, schema, records, migration behavior, complete journal text, 008.1 interaction safeguards, and the no-legacy-CSV contract.
+
+Validation:
+
+- Source/test compilation and the 59-test dependency-complete suite passed.
+- Daniel passed repeat PDF/workbook generation, Open Reports Folder, real-output fidelity/readability, Spinbox, and 008.1 regression checks.
+- The packaged five-page PDF and eight-sheet workbook passed content, structure, and rendered visual inspection using project-created fictional data only.
+- A packaging-only Tcl/Tk discovery defect found in the first attempt was corrected before the candidate was accepted.

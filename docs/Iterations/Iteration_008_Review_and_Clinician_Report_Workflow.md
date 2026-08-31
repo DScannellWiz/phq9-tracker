@@ -17,11 +17,11 @@ Implementation, automated source-level validation, and rendered synthetic-PDF va
 
 ## Design Decisions
 
-- Review exposes exactly **Refresh**, **Import Spreadsheet**, **Generate PDF**, and **Analysis Workbook**.
+- Iteration 008 originally exposed exactly **Refresh**, **Import Spreadsheet**, **Generate PDF**, and **Analysis Workbook**. Iteration 008.2 intentionally supersedes that contract by adding **Open Reports Folder** as a fifth output-management action.
 - **Generate PDF** recalculates the earliest and latest available assessment dates when selected, so records added during the current session are included without exposing manual date controls.
 - The PDF retains its coverage dates and full recorded narrative but no longer creates a companion CSV.
 - The legacy combined CSV/XLSX exporter, its Review and File-menu controls, and its command-line entry point are removed.
-- The normalized seven-sheet Analysis Workbook is the sole data export because it separates logical datasets and documents stable relationships for external analysis.
+- The normalized Analysis Workbook is the sole data export because it separates logical datasets and documents stable relationships for external analysis. Iteration 008.2 adds an eighth derived **14-Day Item Profile** sheet without changing that purpose.
 - The existing spreadsheet importer remains; the misleading CSV file-dialog option was removed because the importer uses an Excel workbook reader.
 - No schema migration or production-record transformation is required.
 

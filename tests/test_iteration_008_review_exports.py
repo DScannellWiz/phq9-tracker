@@ -29,10 +29,10 @@ class Iteration008ReviewExportTests(unittest.TestCase):
             os.environ["PHQ9_TRACKER_DB_PATH"] = self.previous_env_path
         self.tmp.cleanup()
 
-    def test_review_has_four_agreed_actions_and_no_clinician_report_tab(self):
+    def test_review_has_approved_fifth_output_management_action_and_no_clinician_report_tab(self):
         self.assertEqual(
             app.REVIEW_ACTION_LABELS,
-            ("Refresh", "Import Spreadsheet", "Generate PDF", "Analysis Workbook"),
+            ("Refresh", "Import Spreadsheet", "Generate PDF", "Analysis Workbook", "Open Reports Folder"),
         )
         self.assertNotIn("Clinician Report", app.PRIMARY_TAB_ORDER)
 

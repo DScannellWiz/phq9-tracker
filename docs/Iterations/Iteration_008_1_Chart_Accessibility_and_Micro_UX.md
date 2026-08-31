@@ -1,11 +1,11 @@
-Current as of: 2026-08-28
-Last substantive update: 2026-08-28
+Current as of: 2026-08-30
+Last substantive update: 2026-08-30
 
 # Iteration 008.1: Chart Accessibility and Micro-UX
 
 ## Status
 
-Implementation, full automated validation, source compilation, and fictional PDF text validation are complete. Daniel's interactive source-GUI walkthrough and packaged-release validation remain pending.
+Completed after implementation, full automated validation, source compilation, fictional PDF text validation, and Daniel's 2026-08-30 source-GUI walkthrough. Packaged-release validation remains pending.
 
 ## Objectives
 
@@ -53,14 +53,18 @@ Implementation, full automated validation, source compilation, and fictional PDF
 - Compiled application and test source successfully.
 - Confirmed no database file was copied into the implementation workspace and no schema migration was introduced.
 
-## Remaining Manual Validation
+## Daniel's 2026-08-30 Source-GUI Validation
 
-- Inspect hover and locked callouts at left/right chart edges, high/low values, and resized/minimum window dimensions.
-- Tab into each Review chart and verify visible focus behavior plus Left/Right, Enter, and Escape.
-- Confirm date focus changes auto-load only when safe and preserve unsaved Today/History edits when not safe.
-- Review updated status, confirmation, and completion wording in context.
-- Inspect button spacing, notebook tabs, typography, table rows, wrapping, and minimum-window readability.
-- Generate fictional recent, historical-only, and all-zero item 9 reports and inspect the rendered pages.
+- Chart date/score correlation appeared correct.
+- Keyboard chart navigation worked.
+- Date changes worked, and the unsaved-change warning worked.
+- The overall look and feel was acceptable; the typography change was not a blocker.
+- No general-use issues were noticed over the preceding several days of ordinary use.
+- One non-blocking cosmetic observation remained: PHQ-9/GAD-7 Spinbox up/down arrows showed an awkward internal gap. Daniel preferred the arrows to abut, with spacing between questionnaire items instead. Iteration 008.2 applies that bounded polish.
+- This was source-GUI validation only and must not be represented as packaged 008.1 validation.
+
+## Remaining Packaged Validation
+
 - Repeat the focused workflow in a packaged portable build before release. Installer validation remains separate while Inno Setup is unavailable.
 
 ## Lessons Learned

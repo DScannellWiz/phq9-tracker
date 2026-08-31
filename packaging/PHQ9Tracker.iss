@@ -1,5 +1,5 @@
 #define MyAppName "Mental Health Tracker"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "0.3.0-alpha.1"
 #define MyAppPublisher "Local"
 #define MyAppExeName "PHQ9Tracker.exe"
 

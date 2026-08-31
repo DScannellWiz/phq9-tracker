@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.2.0"
+    [string]$Version = "0.3.0-alpha.1"
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,10 +7,35 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Dist = Join-Path $Root "dist"
 $Build = Join-Path $Root "build"
 $PortableOut = Join-Path $Root "release"
+$PythonBase = python -c "import sys; print(sys.base_prefix)"
+$TkinterLib = Join-Path $PythonBase "Lib\tkinter"
+$TclLib = Join-Path $PythonBase "tcl\tcl8.6"
+$TkLib = Join-Path $PythonBase "tcl\tk8.6"
+$TclPackages = Join-Path $PythonBase "tcl\tcl8"
+$TkinterExtension = Join-Path $PythonBase "DLLs\_tkinter.pyd"
+$TclDll = Join-Path $PythonBase "DLLs\tcl86t.dll"
+$TkDll = Join-Path $PythonBase "DLLs\tk86t.dll"
+$TkRuntimeHook = Join-Path $Root "packaging\pyi_rth_tkinter_portable.py"
 
 python -c "import openpyxl, pandas, PIL, reportlab, pypdf"
 if ($LASTEXITCODE -ne 0) {
     throw "Release dependencies are incomplete. Install requirements.txt and PyInstaller in the build environment."
+}
+
+$RequiredTkPaths = @(
+    $TkinterLib,
+    $TclLib,
+    $TkLib,
+    $TclPackages,
+    $TkinterExtension,
+    $TclDll,
+    $TkDll,
+    $TkRuntimeHook
+)
+foreach ($RequiredPath in $RequiredTkPaths) {
+    if (-not (Test-Path -LiteralPath $RequiredPath)) {
+        throw "Tk runtime dependency is missing: $RequiredPath"
+    }
 }
 
 New-Item -ItemType Directory -Force -Path $Dist, $Build, $PortableOut | Out-Null
@@ -25,6 +50,14 @@ python -m PyInstaller `
   --paths "$Root\src" `
   --icon "$Root\packaging\assets\PHQ9_Tracker.ico" `
   --add-data "$Root\README.md;." `
+  --add-data "$TkinterLib;tkinter" `
+  --add-data "$TclLib;_tcl_data" `
+  --add-data "$TkLib;_tk_data" `
+  --add-data "$TclPackages;tcl8" `
+  --add-binary "$TkinterExtension;." `
+  --add-binary "$TclDll;." `
+  --add-binary "$TkDll;." `
+  --runtime-hook $TkRuntimeHook `
   --exclude-module pytest `
   --exclude-module unittest `
   --exclude-module IPython `
