@@ -14,7 +14,8 @@ This folder contains the versioned governance and participant-facing materials f
 
 - [Closed Alpha Participation Acknowledgment v0.1](Closed_Alpha_Participation_Acknowledgment_v0.1.md) must be completed before software distribution.
 - [Closed Alpha Tester Guide v0.1](Closed_Alpha_Tester_Guide_v0.1.md) covers safe first use, local data, backup, milestone activities, software-only feedback, support, and closeout. Its version/build, ZIP filename, and locally established compatibility are filled; download and Form URLs remain pending.
-- [Closed Alpha 1 Candidate Release Record](Closed_Alpha_1_Candidate_Release_Record.md) records the real candidate identifier, source provenance, local package validation (including Daniel's independent extracted EXE and batch-launcher check on his development workstation), hash, limitations, and remaining distribution gates. Separate clean-Windows validation remains open.
+- [Closed Alpha 1 Candidate Release Record](Closed_Alpha_1_Candidate_Release_Record.md) records the real candidate identifier, source provenance, hash, three distinct package-validation paths, limitations, and remaining distribution gates. The recorded paths are Work's installed-mode desktop-control validation, Daniel's extracted EXE and batch-launcher check on his development workstation, and a volunteer's separate-Windows receipt, extraction, launch, and general-use test without development-runtime preparation.
+- [Closed Alpha 1 Infrastructure Readiness](Closed_Alpha_1_Infrastructure_Readiness_2026-08-31.md) records the private, unpublished Google infrastructure state and the end-of-night gates that still require Daniel.
 
 ## Superseded Baseline
 

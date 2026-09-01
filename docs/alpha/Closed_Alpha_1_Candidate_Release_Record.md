@@ -11,7 +11,7 @@ Last substantive update: 2026-08-31
 - SHA-256: `76DE3678AF9BF5C61CC0C0A318347E0F5E1C7F471A6112FE9431DA9A304F4C47`
 - Built: 2026-08-31
 - Locally established compatibility: Windows 11, 64-bit
-- Status: locally validated candidate; not distributed and not a final go/no-go
+- Status: packaged candidate validated locally and on a separate Windows computer; not distributed and not a final go/no-go
 
 The exact build value for the Routine Problem / Feedback Form is `0.3.0-alpha.1`.
 
@@ -36,6 +36,8 @@ A clean extraction started with no database. Starting it in portable mode create
 
 On August 31, 2026, Daniel independently checked the actual candidate on his Windows development workstation. The previously reported `%LOCALAPPDATA%\PHQ9Tracker` validation folder was already absent. He manually extracted `PHQ9Tracker-Portable-0.3.0-alpha.1.zip`, launched `PHQ9Tracker.exe` directly from the extraction, and then launched `Launch Portable Mental Health Tracker.bat`; both launches succeeded and each presented a blank database. This is owner validation of the extracted candidate and both launch paths on the development workstation. It is distinct from the earlier Work desktop-control installed-mode pass and is not a separate clean-machine validation.
 
+Later on August 31, Daniel transferred the exact candidate ZIP to a volunteer's separate Windows computer. The volunteer received and extracted the ZIP on that computer, launched and used the packaged application, and played around in it; Daniel reported that all behavior exercised during that session worked. No Python, Tkinter, or other development runtime was installed or prepared for the test. This supplies separate-machine Windows evidence for receiving, extracting, launching, and generally using the packaged candidate and closes the identified separate-Windows extraction-and-launch gate to that extent. It does not establish a pristine virtual machine or fresh Windows image, specific Windows security-prompt behavior, or exact persistence and output subtests. It remains distinct from Daniel's development-workstation EXE/batch-launcher check and Work's installed-mode desktop-control validation.
+
 ## Fictional Packaged Validation
 
 - Started blank on Today's Check-In and primary screens were blank.
@@ -51,8 +53,8 @@ The earlier desktop-control run reported a project-created fictional database an
 
 ## Remaining Gates
 
-- Validate Extract All, the batch launcher, Windows security prompts, and the complete tester flow on a separate clean Windows environment.
-- Complete Google Drive/Form implementation without inventing URLs; validate Forms signed out/private-browser and complete the end-to-end fictional tester dry run.
+- If needed for final risk acceptance, observe any still-unverified Windows security-prompt behavior during the fictional end-to-end dry run; a volunteer's test did not record that detail.
+- Publish the five private Forms only after Daniel's explicit authorization, then validate them signed out/private-browser and complete the end-to-end fictional tester dry run.
 - Select real testers, assign tester IDs, and complete the Participation Acknowledgment before distribution.
 - Confirm the final Guide/download/Form values and Daniel's final go/no-go.
 - Do not distribute, upload, publish Forms, create a tag or GitHub Release, or treat this local validation as distribution authorization.
