@@ -1,7 +1,9 @@
-Current as of: 2026-08-31
-Last substantive update: 2026-08-31
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # Mental Health Tracker Closed Alpha Tester Guide v0.1
+
+> **Historical and unused:** The formal Closed Alpha plan was abandoned before enrollment or distribution. Public users should follow the root README instead; no tester ID, acknowledgment, milestone Form, or private download is required.
 
 ## Before You Begin
 

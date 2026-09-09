@@ -1,39 +1,67 @@
-Current as of: 2026-08-29
-Last substantive update: 2026-08-29
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # Privacy and Data Handling
 
-This project is designed for local use. It should not upload PHQ-9 records or treatment notes.
+Mental Health Tracker is designed for local use. It does not intentionally upload PHQ-9 or GAD-7 responses, notes, treatment events, databases, reports, or workbooks. Local-first behavior reduces routine external exposure, but it is not a guarantee of privacy or security.
 
-Private data belongs in:
+## Sensitive Local Files
 
-- `data/` for local SQLite databases
-- `reports/` for generated clinician PDFs and normalized XLSX Analysis Workbooks
+The application does not encrypt its SQLite database, generated PDFs, generated workbooks, or backups. Anyone or any software with access to those files may be able to read sensitive content.
 
-Do not commit:
+Storage depends on how the application is started:
 
-- Real user databases
-- PHQ-9 spreadsheets
-- Reports or exports
-- Screenshots containing personal health data
-- Logs that may contain health details
+| Mode | Database | Reports |
+| --- | --- | --- |
+| Portable batch launcher | `phq9_tracker.sqlite` in the extracted application folder | `reports` in the extracted application folder |
+| Packaged EXE launched directly or future installed build | `%LOCALAPPDATA%\PHQ9Tracker\phq9_tracker.sqlite` | `%LOCALAPPDATA%\PHQ9Tracker\reports` |
+| Source launcher | `data\phq9_tracker.sqlite` in the repository | `reports` in the repository |
 
-Sample or fake data may be committed only under `sample_data/` and must be clearly artificial.
+Starting the packaged EXE directly does not activate portable mode. Users who alternate between the EXE and **Launch Portable Mental Health Tracker.bat** can create two separate databases and may mistakenly believe data was lost.
 
-Portable release archives must not contain a user database or any generated private artifact. A portable launch creates and uses `phq9_tracker.sqlite` inside its own extracted folder. Release validation must use synthetic data, prove persistence across restart, and return the portable folder to a verified blank state before distribution or travel use.
+## Backup, Update, and Deletion
 
-## Closed Alpha Handling
+Close the application before copying or replacing a database. Back up the database and any reports that must be retained before an update, reset, or deletion. Backups are sensitive files too and should be stored only in a location the user controls.
 
-Closed-alpha testers retain control of the database and all generated outputs. The portable database remains in the extracted application folder. PDFs and Analysis Workbooks are generated locally under the portable application's common `reports` folder, which remains inside the extracted folder. Testers may enter real, fictional, random, or mixed data at their discretion, and the program does not ask which. Entered content remains controlled by the tester.
+For a portable update, extract the new version into a new folder. Copy the backed-up database into that folder before using the portable batch launcher, confirm that expected records appear, and retain the old folder or backup until verification is complete. Do not overwrite the only working portable folder in place.
 
-The alpha requests and accepts feedback about the software only. It does not request, collect, retain, or analyze participant medical or mental-health information, health outcomes, or tracker-entered content. Feedback instructions must repeatedly tell testers not to submit assessment answers, journal entries, treatment information, clinician information, generated reports, Analysis Workbooks, databases, logs, screenshots containing entered data, or other medical or health information, whether real, fictional, random, mixed, or created for testing.
+Deleting an assessment, note, or treatment event in the application is permanent without a backup. Deleting `phq9_tracker.sqlite` while the app is closed resets that storage location; the next launch creates a blank database. Generated reports are independent files and are not automatically removed when database records are deleted.
 
-If medical or health information is received, do not use, analyze, or intentionally retain it. Delete or destroy it as soon as reasonably practicable after identification. Contact the sender only as necessary to request non-medical troubleshooting details. Reproduce the issue with project-created fictional data; there is no troubleshooting exception for soliciting or retaining entered health or medical data.
+## Repository Boundary
 
-Use tester IDs such as `MHT-A001` in GitHub, findings, development records, and other ordinary program records. Keep the identity/contact-to-ID roster accessible only to Daniel and segregated from GitHub and ordinary project records. Target its destruction 30 days after alpha closeout unless a documented administrative need requires otherwise. Pseudonymized software-testing records may remain as project provenance.
+Private runtime data belongs in:
 
-Google Forms must not allow file uploads and must show the health-data warning immediately before every free-text field. The dedicated Google Drive may hold approved distribution files and ordinary alpha administration records, but it must not hold participant health data. The restricted identity roster must be separated from ordinary alpha records.
+- `data/` for source-run SQLite databases;
+- `reports/` for source-run clinician PDFs and normalized XLSX Analysis Workbooks;
+- the extracted portable folder for portable-mode databases and reports;
+- `%LOCALAPPDATA%\PHQ9Tracker` for packaged direct-EXE and installed-mode data.
 
-Participation does not make the project a monitoring, clinical-support, crisis, or emergency service. Testers may stop and delete their local files at any time; they must be told that deletion is permanent without their own backup and that the alpha should not be the sole repository for important health information.
+Do not commit real user databases, spreadsheets, reports, exports, screenshots, logs, PHI, PII, credentials, private support correspondence, or identifying issue details. Sample data may be committed only under `sample_data/`, must be project-created, and must be clearly fictional.
 
-Future Travel Mode and LAN-sharing concepts do not weaken the local-first boundary. Travel import must be validated and append-only against an authoritative home database; LAN clients must use an authoritative local host/service rather than opening SQLite directly over a network share.
+Portable release archives must not contain a user database or generated private artifact. Release validation must use project-created fictional data and confirm that the distributable ZIP itself remains blank.
+
+## Public Support Boundary
+
+The project accepts software and repository feedback only. Users must not submit assessment responses, scores, journal entries, treatment or clinician information, generated reports, Analysis Workbooks, databases, exports, logs containing entered data, or screenshots containing health or private information.
+
+Useful reports include:
+
+- the application version and Windows version;
+- steps to reproduce the software behavior;
+- expected and actual behavior;
+- the exact error or Windows security-warning text;
+- a screenshot only when it has been checked to contain no health information, identity details, account information, or identifying file paths.
+
+Problems should be reproduced with newly created fictional data whenever possible. If prohibited health or private information is received, do not use or analyze it; delete it as soon as reasonably practicable and request only the minimum non-health troubleshooting details.
+
+`projectmentalhealthtracker@gmail.com` is the intentionally public project support address. It is for software and repository administration only. It is not continuously monitored and must not receive databases, reports, workbooks, screenshots with entered data, personal health information, requests for medical interpretation, or crisis messages.
+
+## Historical Closed Alpha Materials
+
+The abandoned Closed Alpha plan is retained under `docs/alpha/` as project provenance. Its tester-ID, acknowledgment, private Form, and cohort workflow is superseded and is not an active release or support process. The strict health-data firewall developed for that plan remains useful and is carried forward in the public support rules above.
+
+## Medical and Emergency Boundary
+
+The application, repository, issue tracker, and support address are not monitoring, diagnostic, treatment, crisis, or emergency services. Users should not rely on them as the sole record of important health information or as a substitute for professional care.
+
+Future Travel Mode and LAN-sharing concepts do not weaken the local-first boundary. Travel import must be validated and append-only against an authoritative home database; LAN clients must use an authoritative local host or service rather than opening SQLite directly over a network share.

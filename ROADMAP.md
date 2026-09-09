@@ -1,5 +1,5 @@
-Current as of: 2026-08-30
-Last substantive update: 2026-08-30
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # Roadmap
 
@@ -134,7 +134,7 @@ Tentative concept; no iteration number is locked:
 
 ### Iteration 008: Review and Clinician Report Workflow
 
-Status: Implementation, automated source validation, and rendered synthetic-PDF validation complete; interactive GUI and packaged-release validation remain pending.
+Status: Complete. Interactive source-GUI validation and the later `0.3.0-alpha.1` packaged validation are recorded below and in the build notes.
 
 Delivered:
 
@@ -193,30 +193,34 @@ Non-goals:
 - No broader clinician-report redesign, reintroduction of legacy export paths, user-configurable output destination, or database migration.
 - The Treatment Cycles comparison chart remains unchanged. A future iteration may overlay the current ketamine cycle and the two previous cycles on one chart using three distinct colors.
 
-### Closed Alpha Program - Planning
+### Public Repository Soft Launch - Preparation
 
-Status: Alpha Test Plan v0.2 and Closed Alpha Participation Acknowledgment v0.1 establish the approved baseline. Candidate `0.3.0-alpha.1` is locally packaged and validated. The Tester Guide now contains the real build, ZIP filename, and locally established Windows compatibility; download and Form URLs remain pending. Clean-Windows validation, tester selection, Google completion, final dry run, and distribution authorization remain pending.
+Status: Licensing and notice packaging are implemented, the Tcl/Tk startup crash is repaired in a pinned `redistribution.2` candidate, and Daniel's hands-on development-workstation GUI walkthrough passed on that exact hash. Separate-machine validation of `.2` remains unavailable. The sensitive Git history has been rewritten and Daniel selected GPLv3. No repository visibility, release, tag, upload, Form, or social-media action is part of this iteration.
 
-Working baseline:
+Current direction:
 
-- Target a two-week closed alpha from Friday, September 4 through Friday, September 18, 2026.
-- Distribute a validated Windows portable ZIP with a blank local database to an initial deliberately recruited cohort of approximately 5-8 testers.
-- Keep the program free to use, with no financial or material compensation, and focused solely on the software, distribution, documentation, usability, reliability, data integrity, workflows, and generated-output usability.
-- Preserve local-first handling: testers retain and control their own databases, reports, and exports. The program does not request, collect, retain, or analyze participant health data, outcomes, or tracker-entered content, whether real or fictional.
-- Use tester IDs such as `MHT-A001`, a Daniel-only identity roster targeted for destruction 30 days after closeout, Google Forms without file uploads, brief first-use/midpoint/final surveys, and `projectmentalhealthtracker@gmail.com` for software/administrative support only.
-- Allow participants to stop and delete their data at any time, and state that the alpha is not diagnostic/treatment software or the sole repository for important health information.
-- Recruit deliberately before broader LinkedIn outreach.
-- Defer a separate clinician-review track until Closed Alpha 1 feedback is incorporated into a stable candidate report; use only project-created fictional reports when that track begins.
-- Require [Closed Alpha Participation Acknowledgment v0.1](docs/alpha/Closed_Alpha_Participation_Acknowledgment_v0.1.md) before software distribution and record the version and acceptance date for each tester.
-- Use [Closed Alpha Tester Guide v0.1](docs/alpha/Closed_Alpha_Tester_Guide_v0.1.md) for safe minimum onboarding, local-data and backup guidance, milestone activities, software-only problem reporting, support, and closeout. Do not freeze or distribute it until the tester-facing version/build, ZIP filename, compatibility, download URL, and Form URLs are supplied and confirmed against the approved package and Forms.
+- Preserve `0.3.0-alpha.1` as an explicit alpha/pre-release candidate for an initial public soft launch.
+- Use GitHub Releases as the eventual official download path for the validated portable ZIP; do not commit release archives to the repository.
+- Keep the project local-first and accept only software-focused feedback. Never request or accept databases, reports, workbooks, tracker-entered content, or screenshots containing health or private data.
+- Document unsigned Windows security behavior without instructing users to disable protection or override an actual threat detection.
+- Require backup and storage-mode verification before a portable update so users do not confuse portable data with `%LOCALAPPDATA%` data.
+- Keep the abandoned Closed Alpha documents as clearly labeled historical provenance. Do not resume tester IDs, acknowledgments, cohort enrollment, or private Form publication.
 
-Remaining alpha-administration work:
+Before repository publication:
 
-- Select the named 5-8-person cohort without requiring diagnosis or health-history disclosure.
-- Secure the dedicated Google account and implement conservative Drive separation, restricted roster access, Forms without uploads, and warnings immediately before free-text fields.
-- Supply and confirm the Tester Guide's approved download URL and Google Form URLs; re-confirm compatibility during the clean-Windows dry run.
-- Prepare and validate the invitation, Forms, milestone surveys, issue log, release record, replacement-build procedure, and closeout message.
-- Record the exact alpha application version, source revision, release filename, and SHA-256 hash, then complete a clean-Windows dry run before distribution.
+- Push the reviewed local release-readiness commit only with Daniel's separate authorization.
+- After the push, re-run the GitHub/server history, tracked-file, and release-readiness privacy checks.
+- Make the repository public only after that audit and Daniel's separate visibility decision.
+
+After repository publication:
+
+- Create a GitHub Release only with separate authorization, attach the already validated ZIP, mark it as a pre-release, and publish its SHA-256 hash.
+- Consider one focused GitHub issue template if public issue reports show that the no-health-data boundary needs stronger in-form reinforcement.
+- Consider code signing as a future trust and publisher-identity improvement; it does not replace antivirus scanning or release validation.
+
+### Closed Alpha Program - Historical and Abandoned
+
+The planned September 2026 Closed Alpha was abandoned before enrollment or distribution. Its tester-ID, acknowledgment, cohort, milestone, and private Google Form workflow is superseded and must not be presented as current instructions. The archived materials remain under [docs/alpha](docs/alpha/README.md) as provenance, and their strict health-data firewall continues to inform public support boundaries.
 
 ## Security and Privacy
 

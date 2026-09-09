@@ -1,24 +1,26 @@
-Current as of: 2026-08-31
-Last substantive update: 2026-08-31
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
-# Closed Alpha Documentation
+# Historical Closed Alpha Documentation
 
-This folder contains the versioned governance and participant-facing materials for Mental Health Tracker Closed Alpha 1.
+> **Historical and superseded:** The formal Closed Alpha plan was abandoned before enrollment or distribution. These files remain for project provenance only. They are not active instructions: no tester ID, participation acknowledgment, private Google Form, scheduled milestone, or cohort enrollment is required for public users.
 
-## Approved Program Baseline
+This folder preserves the versioned governance, candidate-validation, and participant-facing materials that were prepared for Mental Health Tracker Closed Alpha 1.
 
-- [Closed Alpha Test Plan v0.2](Alpha_Test_Plan_v0.2.md) defines the approved software-testing purpose, schedule, privacy boundary, release controls, feedback process, and operating decisions.
-- [ADR 0007: Closed Alpha Governance and Health-Data Firewall](../decisions/0007-closed-alpha-governance.md) records the durable governance rationale.
+## Historical Program Baseline
 
-## Participant-Facing Materials
+- [Closed Alpha Test Plan v0.2](Alpha_Test_Plan_v0.2.md) records the final planned software-testing purpose, schedule, privacy boundary, release controls, feedback process, and operating decisions.
+- [ADR 0007: Closed Alpha Governance and Health-Data Firewall](../decisions/0007-closed-alpha-governance.md) records the governance rationale. Its health-data firewall remains relevant to public support even though its cohort workflow is superseded.
 
-- [Closed Alpha Participation Acknowledgment v0.1](Closed_Alpha_Participation_Acknowledgment_v0.1.md) must be completed before software distribution.
-- [Closed Alpha Tester Guide v0.1](Closed_Alpha_Tester_Guide_v0.1.md) covers safe first use, local data, backup, milestone activities, software-only feedback, support, and closeout. Its version/build, ZIP filename, and locally established compatibility are filled; download and Form URLs remain pending.
-- [Closed Alpha 1 Candidate Release Record](Closed_Alpha_1_Candidate_Release_Record.md) records the real candidate identifier, source provenance, hash, three distinct package-validation paths, limitations, and remaining distribution gates. The recorded paths are Work's installed-mode desktop-control validation, Daniel's extracted EXE and batch-launcher check on his development workstation, and a volunteer's separate-Windows receipt, extraction, launch, and general-use test without development-runtime preparation.
-- [Closed Alpha 1 Infrastructure Readiness](Closed_Alpha_1_Infrastructure_Readiness_2026-08-31.md) records the private, unpublished Google infrastructure state and the end-of-night gates that still require Daniel.
+## Archived Participant-Facing Materials
 
-## Superseded Baseline
+- [Closed Alpha Participation Acknowledgment v0.1](Closed_Alpha_Participation_Acknowledgment_v0.1.md) is an unused historical acknowledgment.
+- [Closed Alpha Tester Guide v0.1](Closed_Alpha_Tester_Guide_v0.1.md) is an unused historical guide. Its private download/Form placeholders were never a public release path.
+- [Closed Alpha 1 Candidate Release Record](Closed_Alpha_1_Candidate_Release_Record.md) records the candidate identifier, source provenance, hash, three validation paths, and limitations. The separate-machine path is described without identifying the volunteer.
+- [Closed Alpha 1 Infrastructure Readiness](Closed_Alpha_1_Infrastructure_Readiness_2026-08-31.md) records the private, unpublished Google infrastructure state at the time the plan was abandoned. It does not expose responder URLs or file IDs and is not an instruction to publish those services.
 
-- [Closed Alpha Test Plan v0.1](Alpha_Test_Plan_v0.1.md) preserves the earlier provisional decisions for provenance.
+## Earlier Baseline
 
-These documents must not contain participant health information, tracker-entered content, private roster data, or identifying issue details.
+- [Closed Alpha Test Plan v0.1](Alpha_Test_Plan_v0.1.md) preserves the earlier provisional decisions.
+
+These documents must not be used to restart enrollment or distribution without a new owner decision and review. They must never contain participant health information, tracker-entered content, private roster data, responder URLs, private file IDs, or identifying issue details.

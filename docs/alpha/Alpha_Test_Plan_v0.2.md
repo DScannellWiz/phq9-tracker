@@ -1,7 +1,9 @@
-Current as of: 2026-08-29
-Last substantive update: 2026-08-29
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # Mental Health Tracker Closed Alpha Test Plan v0.2
+
+> **Historical and superseded:** The formal Closed Alpha plan was abandoned before enrollment or distribution. This document is retained as provenance and is not an active testing, enrollment, Form, or support workflow.
 
 ## Document Status
 

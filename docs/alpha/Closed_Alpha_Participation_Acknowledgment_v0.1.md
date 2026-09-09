@@ -1,7 +1,9 @@
-Current as of: 2026-08-29
-Last substantive update: 2026-08-29
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # Mental Health Tracker Closed Alpha Participation Acknowledgment v0.1
+
+> **Historical and unused:** The formal Closed Alpha plan was abandoned before enrollment or distribution. Public users do not complete this acknowledgment or receive tester IDs.
 
 ## About This Closed Alpha
 

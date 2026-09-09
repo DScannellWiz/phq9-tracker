@@ -1,5 +1,7 @@
 param(
-    [string]$Version = "0.3.0-alpha.1"
+    [string]$Version = "0.3.0-alpha.1",
+    [string]$ArtifactRevision = "redistribution.2",
+    [string]$Python = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,7 +9,20 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Dist = Join-Path $Root "dist"
 $Build = Join-Path $Root "build"
 $PortableOut = Join-Path $Root "release"
-$PythonBase = python -c "import sys; print(sys.base_prefix)"
+$ArtifactLabel = if ([string]::IsNullOrWhiteSpace($ArtifactRevision)) {
+    $Version
+} else {
+    "$Version-$ArtifactRevision"
+}
+if ([string]::IsNullOrWhiteSpace($Python)) {
+    $RepositoryPython = Join-Path $Root ".venv\Scripts\python.exe"
+    $Python = if (Test-Path -LiteralPath $RepositoryPython) { $RepositoryPython } else { "python" }
+}
+
+$PythonBase = & $Python -c "import sys; print(sys.base_prefix)"
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to inspect the selected Python runtime: $Python"
+}
 $TkinterLib = Join-Path $PythonBase "Lib\tkinter"
 $TclLib = Join-Path $PythonBase "tcl\tcl8.6"
 $TkLib = Join-Path $PythonBase "tcl\tk8.6"
@@ -16,10 +31,16 @@ $TkinterExtension = Join-Path $PythonBase "DLLs\_tkinter.pyd"
 $TclDll = Join-Path $PythonBase "DLLs\tcl86t.dll"
 $TkDll = Join-Path $PythonBase "DLLs\tk86t.dll"
 $TkRuntimeHook = Join-Path $Root "packaging\pyi_rth_tkinter_portable.py"
+$PortableEntry = Join-Path $Root "packaging\portable_entry.py"
 
-python -c "import openpyxl, pandas, PIL, reportlab, pypdf"
+& $Python -c "import openpyxl, pandas, PIL, reportlab, pypdf"
 if ($LASTEXITCODE -ne 0) {
     throw "Release dependencies are incomplete. Install requirements.txt and PyInstaller in the build environment."
+}
+
+& $Python (Join-Path $PSScriptRoot "verify_release_licenses.py")
+if ($LASTEXITCODE -ne 0) {
+    throw "Release licensing verification failed."
 }
 
 $RequiredTkPaths = @(
@@ -30,7 +51,8 @@ $RequiredTkPaths = @(
     $TkinterExtension,
     $TclDll,
     $TkDll,
-    $TkRuntimeHook
+    $TkRuntimeHook,
+    $PortableEntry
 )
 foreach ($RequiredPath in $RequiredTkPaths) {
     if (-not (Test-Path -LiteralPath $RequiredPath)) {
@@ -40,7 +62,7 @@ foreach ($RequiredPath in $RequiredTkPaths) {
 
 New-Item -ItemType Directory -Force -Path $Dist, $Build, $PortableOut | Out-Null
 
-python -m PyInstaller `
+& $Python -m PyInstaller `
   --noconfirm `
   --clean `
   --onedir `
@@ -62,13 +84,39 @@ python -m PyInstaller `
   --exclude-module unittest `
   --exclude-module IPython `
   --exclude-module notebook `
-  "$Root\src\phq9_tracker\app.py"
+  $PortableEntry
 
-$PortableDir = Join-Path $PortableOut "PHQ9Tracker-Portable-$Version"
+if ($LASTEXITCODE -ne 0) {
+    throw "PyInstaller release build failed."
+}
+
+$DistApp = Join-Path $Dist "PHQ9Tracker"
+$RequiredBundlePaths = @(
+    (Join-Path $DistApp "PHQ9Tracker.exe"),
+    (Join-Path $DistApp "_internal\_tcl_data\init.tcl"),
+    (Join-Path $DistApp "_internal\_tk_data\tk.tcl"),
+    (Join-Path $DistApp "_internal\_tkinter.pyd"),
+    (Join-Path $DistApp "_internal\tcl86t.dll"),
+    (Join-Path $DistApp "_internal\tk86t.dll")
+)
+foreach ($RequiredBundlePath in $RequiredBundlePaths) {
+    if (-not (Test-Path -LiteralPath $RequiredBundlePath -PathType Leaf)) {
+        throw "Built bundle is missing required Tcl/Tk content: $RequiredBundlePath"
+    }
+}
+Copy-Item -LiteralPath (Join-Path $Root "LICENSE") -Destination (Join-Path $DistApp "LICENSE")
+Copy-Item -Recurse -LiteralPath (Join-Path $Root "THIRD_PARTY_NOTICES") -Destination (Join-Path $DistApp "THIRD_PARTY_NOTICES")
+
+$PortableDir = Join-Path $PortableOut "PHQ9Tracker-Portable-$ArtifactLabel"
 if (Test-Path $PortableDir) {
+    $ExpectedPortableRoot = [IO.Path]::GetFullPath($PortableOut).TrimEnd('\') + '\'
+    $ResolvedPortableDir = [IO.Path]::GetFullPath($PortableDir)
+    if (-not $ResolvedPortableDir.StartsWith($ExpectedPortableRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove unexpected portable output path: $ResolvedPortableDir"
+    }
     Remove-Item -Recurse -Force $PortableDir
 }
-Copy-Item -Recurse (Join-Path $Dist "PHQ9Tracker") $PortableDir
+Copy-Item -Recurse $DistApp $PortableDir
 Set-Content -Path (Join-Path $PortableDir "Launch Portable Mental Health Tracker.bat") -Value @"
 @echo off
 setlocal
@@ -77,7 +125,7 @@ cd /d "%~dp0"
 "%~dp0PHQ9Tracker.exe"
 "@
 
-$ZipPath = Join-Path $PortableOut "PHQ9Tracker-Portable-$Version.zip"
+$ZipPath = Join-Path $PortableOut "PHQ9Tracker-Portable-$ArtifactLabel.zip"
 if (Test-Path $ZipPath) {
     Remove-Item -Force $ZipPath
 }
@@ -86,4 +134,6 @@ Compress-Archive -Path "$PortableDir\*" -DestinationPath $ZipPath -CompressionLe
 Write-Host "Built folder-based app: $Dist\PHQ9Tracker"
 Write-Host "Built portable folder: $PortableDir"
 Write-Host "Built portable zip: $ZipPath"
+Write-Host "Included project license: $PortableDir\LICENSE"
+Write-Host "Included third-party notices: $PortableDir\THIRD_PARTY_NOTICES"
 Write-Host "Next: compile packaging\PHQ9Tracker.iss with Inno Setup."

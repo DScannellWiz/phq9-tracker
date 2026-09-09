@@ -1,6 +1,8 @@
 # Closed Alpha 1 Infrastructure Readiness
 
-Current as of: 2026-08-31
+> **Historical and superseded:** Closed Alpha 1 was abandoned before enrollment or distribution. The Google resources described here remained private and unpublished and are not the current release or feedback path.
+
+Current as of: 2026-09-07
 
 ## Release anchor
 
@@ -39,7 +41,7 @@ The private `Closed Alpha 1 Release and Administration Record` now records the c
 
 ## Packaged-candidate validation added at closeout
 
-On August 31, Daniel transferred the exact candidate ZIP to a volunteer's separate Windows computer. The volunteer received and extracted the ZIP on that computer, launched and used the packaged application, and played around in it; Daniel reports that all behavior exercised during the session worked. No Python, Tkinter, or other development runtime was installed or prepared for this test.
+On August 31, Daniel transferred the exact candidate ZIP to a volunteer's separate Windows computer. The volunteer received and extracted the ZIP on that computer, launched and used the packaged application, and reported through Daniel that all behavior exercised during the session worked. No Python, Tkinter, or other development runtime was installed or prepared for this test.
 
 This is separate-machine Windows evidence for receiving, extracting, launching, and generally using the packaged candidate. It closes the identified separate-Windows extraction-and-launch gate to the extent supported by those observations. It is not evidence of a pristine virtual machine or freshly installed Windows image, specific SmartScreen or other Windows security-prompt behavior, or exact persistence and output subtests. This test remains distinct from Daniel's earlier extracted EXE and batch-launcher check on his development workstation and Work's installed-mode desktop-control validation.
 

@@ -1,85 +1,119 @@
-Current as of: 2026-08-30
-Last substantive update: 2026-08-30
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # Mental Health Tracker
 
-A privacy-first desktop application for tracking standardized mental health assessments over time.
+Mental Health Tracker is a privacy-first, local-first Windows desktop application for recording PHQ-9 and GAD-7 check-ins over time. It combines daily assessment responses with optional notes and treatment events, then creates a readable PDF conversation aid and a normalized XLSX Analysis Workbook.
 
-The project began as a PHQ-9 tracker and now supports a reusable multi-assessment framework with PHQ-9 and GAD-7 as the first two instruments.
+The project began as a personal response to the **Tyranny of Temporal Distance**: the difficulty of accurately describing weeks or months of symptoms during a short appointment when the most recent day can overshadow the broader pattern. See [Project Origins](PROJECT_ORIGINS.md) for the motivation and design history.
+
+## Maturity and Availability
+
+The current candidate is `0.3.0-alpha.1`. It is alpha/pre-release software for Windows 11 64-bit, not a finished or clinically validated product. It has passed 59 automated tests, fictional packaged workflow checks, owner testing, and a separate-Windows receipt/extraction/launch/general-use check. That evidence does not guarantee that it will work on every computer or be useful for every person.
+
+No public binary download is available yet. If the project is made public, the recommended nontechnical download path is a GitHub Release with `PHQ9Tracker-Portable-0.3.0-alpha.1.zip` attached and clearly marked as a pre-release. Do not download executables or ZIP files from reposts or unofficial mirrors.
 
 ## Current Features
 
 - Today's Check-In for PHQ-9, GAD-7, optional daily notes, and multiple treatment events.
-- Previous Day and Next Day navigation in both Today's Check-In and History / Manage Entries, with automatic calendar rollover, future-date prevention, existing-record loading, and separate unsaved-change protection for each workflow.
-- Existing-date detection that loads and updates daily records without creating accidental duplicates.
-- History / Manage Entries tools for editing and confirmed deletion of assessments, notes, and treatment events, plus a calm read-only state when a selected date has no records.
-- PHQ-9 daily tracking with preserved legacy database compatibility.
-- GAD-7 daily tracking.
-- Clearly labeled Daily Severity Scores and 14-Day Symptom Frequency Scores for each assessment.
-- An accessible How Scoring Works explanation in the app and clinician report.
-- SQLite local storage under the project `data` folder during source runs.
-- A separate Review experience with concise, deterministic symptom summaries, recent charts, current/previous ketamine-cycle views, and long-term trends.
-- Discoverable Review chart values: hover or click a point for its date and exact score, or focus a chart and use Left/Right, Enter, and Escape.
-- Guarded date-field auto-loading when no unsaved work can be lost; Enter also loads the date explicitly.
-- Compact clinician discussion reports centered on scoring context, a current per-item 14-day symptom-frequency profile, recorded patterns, treatment context, complete user-authored journal text, and neutral conversation prompts. Reports expand as needed rather than truncating journal entries.
-- Recency-aware PHQ-9 item 9 report context that discloses recent 14-day coverage, keeps older responses explicitly historical, and does not infer current risk from older data.
-- A normalized XLSX analysis workbook with Daily Assessments, Item Responses, Notes, Treatment Events, Treatment Cycles, Metadata, a derived Daily Summary, and a derived current **14-Day Item Profile**.
-- One local `reports` folder for both canonical outputs, with optional open-after-save prompts and an **Open Reports Folder** Review action.
-- Treatment event tracking.
-- Automated tests for scoring, migration, exports, and report behavior where local dependencies are available.
+- Previous Day and Next Day navigation, existing-date loading, future-date prevention, and unsaved-change protection.
+- History / Manage Entries tools for editing and confirmed deletion of assessments, notes, and treatment events.
+- Clearly labeled Daily Severity Scores and 14-Day Symptom Frequency Scores with recorded-day coverage.
+- Review summaries, recent charts, treatment-cycle views, and long-term trends.
+- Chart point values available by hover, click, and keyboard.
+- A compact full-history PDF designed to support—not replace—a conversation with a licensed clinician.
+- A normalized XLSX Analysis Workbook with assessment, item-response, note, treatment-event, cycle, metadata, daily-summary, and current 14-day item-profile records.
+- One local `reports` folder for both generated outputs.
 
-## Installation
+## Running from Source
 
-Use Python 3.12 or later on Windows.
+Source use is intended for developers and requires Python 3.12 or later on Windows.
 
 ```powershell
 python -m pip install -r requirements.txt
-python -m phq9_tracker
+& ".\Launch Mental Health Tracker.bat"
 ```
 
-For source runs, execute commands from the project root so the app can locate `data` and the common `reports` output folder.
+Run those commands from the project root. The launcher adds the repository's `src` folder to Python's import path and uses a project-local `.venv` or `venv` when available.
 
-## Basic Usage
+## Using a Portable Build
 
-1. Open the application.
-2. Use **Today's Check-In** to enter PHQ-9 and GAD-7 responses for the day.
-3. Use **Previous Day** or **Next Day** for short-distance catch-up. Month and year boundaries are handled automatically, existing entries load automatically, and future check-ins are blocked.
-4. Open **Review** when you want historical summaries, recent trends, treatment-cycle views, or long-term charts. Hover or click a chart point to see its exact date and score. Review information is intentionally kept out of Today's Check-In.
-5. Use **History / Manage Entries** to move one day at a time, edit existing records, or add another legitimate event to a day that already has records. Empty dates remain read-only and direct you back to Today's Check-In for new daily recording.
-6. Select any relevant event checkboxes in Today's Check-In, or use **Add Custom Event** for another event type.
-7. From **Review**, use **Generate PDF** when you want a readable full-history conversation aid. Use **Analysis Workbook** when you want normalized data for filtering, sorting, pivoting, or independent analysis. Both are created in the common `reports` folder; each can be opened immediately, and **Open Reports Folder** opens that location later.
+When an official portable ZIP becomes available:
 
-Useful keyboard actions are intentionally limited: press Enter in a Today or History date field to load that date, F5 to refresh local Review data, and Left/Right, Enter, or Escape while a chart has focus to inspect or clear point callouts.
+1. Allow Windows Security or your antivirus product to scan the downloaded ZIP.
+2. Extract the entire ZIP into a normal user-writable folder. Do not run the app from inside the ZIP.
+3. Keep all extracted files together.
+4. Start it with **Launch Portable Mental Health Tracker.bat** whenever you want portable-mode storage.
 
-Daily check-ins intentionally do not copy or autofill previous responses. Each symptom should be considered independently to encourage mindful reflection and higher-quality recorded data.
+Starting `PHQ9Tracker.exe` directly does not enable portable mode. A direct EXE launch uses the installed-mode data location under `%LOCALAPPDATA%\PHQ9Tracker` instead of the extracted folder. Switching launch methods can therefore make an existing history appear missing even though it remains in the other location.
 
-## Privacy Philosophy
+## Data, Reports, Backups, and Updates
 
-This app is local-first. It does not intentionally upload assessment responses, notes, treatment events, databases, reports, or exports.
+The application does not include cloud synchronization or an automatic backup service.
 
-Portable builds are designed to start with a blank database inside the extracted portable folder. Do not add an existing user database to a portable ZIP unless the user has made a separate, informed data-transfer decision.
+| How the app is started | Database | Generated PDF/XLSX files |
+| --- | --- | --- |
+| Official portable batch launcher | `phq9_tracker.sqlite` beside the launcher | `reports` beside the launcher |
+| Packaged EXE started directly, or a future installed build | `%LOCALAPPDATA%\PHQ9Tracker\phq9_tracker.sqlite` | `%LOCALAPPDATA%\PHQ9Tracker\reports` |
+| Source launcher | `data\phq9_tracker.sqlite` in the repository | `reports` in the repository |
 
-Private runtime data belongs in:
+The SQLite database, PDFs, and workbooks can contain highly sensitive information and are not encrypted by the application. Store backups somewhere you control and protect them like other private health records.
 
-- `data/`
-- `reports/`
+Before replacing or updating the application:
 
-Those folders are ignored by Git except for placeholder files and documentation. The legacy `exports/` directory remains ignored for privacy but is no longer an active production output path. Do not commit real databases, reports, exports, screenshots, logs, PHI, PII, or secrets.
+1. Close Mental Health Tracker.
+2. Identify the storage mode you actually used from the table above.
+3. Copy the database and any reports you want to retain to a separate backup location.
+4. For a portable update, extract the new release into a new folder rather than overwriting the old folder. Copy the backed-up `phq9_tracker.sqlite` into the new extracted folder before launching it with the portable batch launcher.
+5. Confirm that History shows the expected records before deleting the old folder or backup.
 
-## Disclaimer
+Current migrations are designed to preserve older PHQ-9 records, but backup and verification are still required. Reports are separate files; deleting records from the app or deleting the database does not automatically delete previously generated reports. In-app record deletion and manual database deletion are permanent without a backup. Deleting the database while the app is closed resets that storage location; the next launch creates a new blank database.
 
-This software is intended to help users track symptoms and prepare for conversations with licensed healthcare professionals. It is not a diagnostic tool and should not replace professional medical advice, crisis support, or emergency care.
+## Privacy and Support Boundary
+
+This app is local-first. It does not intentionally upload assessment responses, notes, treatment events, databases, reports, or workbooks. Local-first design reduces exposure, but it is not a guarantee of privacy or security; the computer, backup location, email client, and any files the user chooses to share remain outside the application's control.
+
+Never submit or email:
+
+- a tracker database;
+- a generated PDF, spreadsheet, export, or log containing entered data;
+- assessment answers, scores, journal entries, treatment or clinician information;
+- screenshots containing health information, names, account details, file paths that identify a person, or other private data.
+
+For software support, provide the application version, Windows version, steps to reproduce the behavior, what you expected, what happened, and the exact non-health error or security-warning text. Screenshots are acceptable only after confirming that they contain no health information or other private data. Reproduce problems with newly created fictional data whenever possible.
+
+The intentionally public project support address is `projectmentalhealthtracker@gmail.com`. It is for software and repository administration only. Do not send personal health information or generated health-data artifacts to that address. Support is best effort and is not continuously monitored.
+
+See [Privacy and Data Handling](docs/PRIVACY_AND_DATA_HANDLING.md) and [Security Policy](SECURITY.md) for the full boundaries.
+
+## Windows Security Notice
+
+The current candidate is not code-signed. Windows Defender, Microsoft SmartScreen, or another security product may scan it or warn that an unfamiliar pre-release application has limited reputation. Allow normal scanning. Do not disable antivirus protection, suppress an actual threat detection, or override a warning you do not understand.
+
+If a warning appears, stop and report the exact product name, warning text, detected file, release filename, and release source without including private health data. Code signing would improve publisher identity and reputation signals, but it is not currently available and is not a substitute for clean build and release practices.
+
+## Medical and Safety Disclaimer
+
+Mental Health Tracker is not medical advice, a diagnostic tool, a treatment recommendation, a medical device claim, an emergency service, or crisis support. It is not a substitute for a qualified healthcare professional. Scores, summaries, charts, and reports can be incomplete or misleading when data is missing and must be interpreted in context.
+
+If you may be in immediate danger or need urgent help, contact local emergency services or an appropriate crisis resource. Do not use this repository, its issue tracker, or the project support email for emergency or clinical support.
 
 ## Project Documentation
 
 - [Project Origins](PROJECT_ORIGINS.md) explains the human problem that started the project and its intended division of labor.
-- [Development Journal](DEVELOPMENT_JOURNAL.md) records the reconstructed prehistory and the context behind significant iterations.
+- [Development Journal](DEVELOPMENT_JOURNAL.md) records the reconstructed prehistory and significant iterations.
 - [Product Principles](docs/product-principles.md) defines the stable philosophical core and adaptable implementation layers.
 - [Architecture Decision Records](docs/decisions/) document significant product and architectural decisions.
-- [Closed Alpha Documentation Index](docs/alpha/README.md) lists the current governance and participant-facing materials for Closed Alpha 1.
-- [Closed Alpha Test Plan v0.2](docs/alpha/Alpha_Test_Plan_v0.2.md) defines the approved Windows portable-ZIP test program, software-only purpose, health-data firewall, feedback process, and operating decisions. [v0.1](docs/alpha/Alpha_Test_Plan_v0.1.md) remains available as the provisional decision baseline.
-- [Closed Alpha Participation Acknowledgment v0.1](docs/alpha/Closed_Alpha_Participation_Acknowledgment_v0.1.md) records the plain-language conditions each tester must affirm before receiving the software.
-- [Closed Alpha Tester Guide v0.1](docs/alpha/Closed_Alpha_Tester_Guide_v0.1.md) gives participants the minimum safe installation, local-data, backup, milestone, feedback, support, and closeout guidance without scripting every interface workflow.
+- [Build and Release Notes](BUILD_AND_RELEASE.md) covers developer packaging, validation, and release controls.
+- [Historical Closed Alpha Documentation](docs/alpha/README.md) preserves an abandoned private testing plan as provenance. It is not an active enrollment, support, or release workflow.
+
+## License
+
+Copyright © 2026 Daniel Scannell.
+
+Mental Health Tracker is licensed under the [GNU General Public License version 3](LICENSE) (`GPL-3.0-only`). Users may use, study, modify, redistribute, and commercially use the software subject to GPLv3's terms, including the source-availability and same-license requirements that apply when covered modified versions are distributed. The license does not prohibit commercial use or add medical-data restrictions.
+
+Windows binary distributions also contain third-party software under compatible licenses. Their required verbatim notices are preserved in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES/README.md); those notices do not replace or narrow GPLv3.
 
 ## AI-Assisted Development
 

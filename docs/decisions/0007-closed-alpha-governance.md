@@ -1,11 +1,11 @@
-Current as of: 2026-08-29
-Last substantive update: 2026-08-29
+Current as of: 2026-09-07
+Last substantive update: 2026-09-07
 
 # ADR 0007: Closed Alpha Governance and Health-Data Firewall
 
 ## Status
 
-Accepted
+Superseded for program operation on 2026-09-07. The formal Closed Alpha was abandoned before enrollment or distribution. Its cohort, tester-ID, acknowledgment, schedule, and private-Form workflow is not active. The categorical health-data firewall remains accepted for public support and issue handling.
 
 ## Context
 

@@ -1,7 +1,13 @@
-Current as of: 2026-08-31
-Last substantive update: 2026-08-31
+Current as of: 2026-09-08
+Last substantive update: 2026-09-08
 
 # Build and Release Notes
+
+## Current Public-Release Posture
+
+`0.3.0-alpha.1` remains explicitly alpha/pre-release software. No Windows binary is currently approved for public redistribution. The Tcl initialization crash has been repaired in the `redistribution.2` candidate, and that exact hash passed Daniel's required hands-on development-workstation GUI walkthrough. The repository contains no committed release ZIP, and none should be added. After every remaining gate passes and Daniel separately authorizes distribution, the recommended nontechnical path is a GitHub Release with the exact validated ZIP attached, the release marked as a pre-release, and its SHA-256 shown in the release notes.
+
+Do not create a tag, GitHub Release, upload, or public announcement merely because the source and candidate tests pass. Repository visibility, source publication, binary distribution, and social-media promotion are separate owner decisions.
 
 ## Packaging Choice
 
@@ -13,7 +19,7 @@ The executable name remains `PHQ9Tracker.exe` for backward compatibility during 
 
 Recommended build environment:
 
-- Python 3.12 or 3.13 from python.org with Tcl/Tk installed
+- Python 3.12.10 from python.org with Tcl/Tk 8.6.15 installed for reproduction of the audited `0.3.0-alpha.1` runtime
 - `pandas`
 - `openpyxl`
 - `Pillow`
@@ -22,30 +28,48 @@ Recommended build environment:
 - `pyinstaller`
 - Inno Setup 6 for the Windows installer
 
-Install example:
+Install the exact release dependency set in an isolated environment:
 
 ```powershell
-python -m pip install pandas openpyxl Pillow reportlab pypdfium2 pyinstaller
+python -m pip install -r .\packaging\requirements-release.txt
 ```
 
 The source launcher prefers a project-local `.venv` or `venv` when present. Report generation also checks `PHQ9_TRACKER_BUNDLED_PYTHON`, then those project-local environments, before reporting exactly which packages are unavailable.
 
-The release script performs a dependency preflight before invoking PyInstaller. This fails early when report or export dependencies are missing instead of producing an incomplete package.
+The release script performs dependency and licensing preflights before invoking PyInstaller. It fails early when the selected Python/runtime versions, package versions, project license, or third-party notice hashes differ from `packaging\third_party_notice_manifest.json`.
 
 ## Build Executable and Portable Version
 
 ```powershell
 cd <project-root>
-.\packaging\build_release.ps1 -Version 0.3.0-alpha.1
+.\packaging\build_release.ps1 -Version 0.3.0-alpha.1 -ArtifactRevision redistribution.2
 ```
 
 This creates:
 
 - `dist\PHQ9Tracker\` folder-based application build
-- `release\PHQ9Tracker-Portable-0.3.0-alpha.1\` portable folder
-- `release\PHQ9Tracker-Portable-0.3.0-alpha.1.zip` portable archive
+- `release\PHQ9Tracker-Portable-0.3.0-alpha.1-redistribution.2\` portable folder
+- `release\PHQ9Tracker-Portable-0.3.0-alpha.1-redistribution.2.zip` portable archive
 
-The portable launcher sets `PHQ9_TRACKER_PORTABLE=1`, which keeps `phq9_tracker.sqlite` inside the portable folder.
+The `redistribution.2` suffix is an artifact revision, not an application-version change. It distinguishes the Tcl/Tk startup repair from the rejected `redistribution.1` notice-only attempt without silently changing `0.3.0-alpha.1`. Every folder, ZIP, and future installer produced from the folder build includes the project `LICENSE` at its root and the complete `THIRD_PARTY_NOTICES` directory.
+
+The release verifier must initialize the exact Python 3.12.10/Tcl/Tk 8.6.15 runtime and match all package versions before PyInstaller runs. The build explicitly bundles the Tkinter package, Tcl/Tk libraries, extension, and DLLs, then fails if any required bundle file is absent. On Windows, the runtime hook and `packaging\portable_entry.py` set `TCL_LIBRARY` and `TK_LIBRARY` to extended (`//?/`) bundle paths before application import. This prevents Tcl path canonicalization from dropping sandboxed user-profile path components; it is not a machine-wide environment change.
+
+The original `PHQ9Tracker-Portable-0.3.0-alpha.1.zip` may be used only as an audited packaging input by the narrow notice-repackaging command:
+
+```powershell
+.\packaging\repackage_release_with_notices.ps1 -Version 0.3.0-alpha.1 -ArtifactRevision redistribution.1
+```
+
+That command refuses any base archive whose SHA-256 is not `76DE3678AF9BF5C61CC0C0A318347E0F5E1C7F471A6112FE9431DA9A304F4C47`, verifies its 1,836-entry privacy-clean inventory, verifies every committed notice hash, and creates a distinct output without changing the validated executable bytes. It exists to make this administrative correction reproducible; a normal future release should use the full build script in the pinned, Tcl/Tk-capable environment.
+
+## Licensing and Notices
+
+Project source is `GPL-3.0-only`; the canonical unmodified text is `LICENSE`. Daniel's copyright identification belongs in project documentation, not inside the GPL text. `THIRD_PARTY_NOTICES\README.md` inventories the distributed runtime, and the adjacent verbatim files preserve CPython's complete license/incorporated-software appendix, Tcl/Tk terms, the PyInstaller bootloader exception, NumPy and Pillow embedded-component inventories, ReportLab/font notices, and the applicable pandas, OpenPyXL, et_xmlfile, python-dateutil, six, charset-normalizer, and tzdata/IANA terms.
+
+Do not delete notices merely because a third-party license is GPL-compatible. Compatibility and notice-preservation are separate requirements.
+
+The portable launcher sets `PHQ9_TRACKER_PORTABLE=1`, which keeps `phq9_tracker.sqlite` and the `reports` folder inside the portable folder. Starting `PHQ9Tracker.exe` directly does not set portable mode and instead uses `%LOCALAPPDATA%\PHQ9Tracker`. Public instructions must tell portable users to use the batch launcher consistently.
 
 Portable builds retain the executable icon and create no system shortcuts. The launcher is named `Launch Portable Mental Health Tracker.bat`.
 
@@ -95,6 +119,20 @@ Iteration 008.1 requires no schema migration. Chart callouts, guarded date loadi
 
 Iteration 008.2 requires no schema migration. It derives current 14-day item-profile records from existing assessment entries, corrects event-type display mapping, and changes only generated-output routing and Review conveniences.
 
+## User Data During Backup and Updates
+
+Before an update, close the application and back up the database plus any reports the user wants to retain. For a portable update, extract the new version to a new folder; do not overwrite the only working copy in place. Copy the backed-up `phq9_tracker.sqlite` into the new folder before starting the portable batch launcher, verify the expected History records, and retain the old folder or backup until verification succeeds.
+
+Installed-mode or direct-EXE data under `%LOCALAPPDATA%\PHQ9Tracker` is separate from portable-mode data. Changing launch methods can make a valid database appear missing. Installer replacement is designed not to overwrite LocalAppData, but installer behavior remains less validated than the portable path and should not be the initial public binary offering.
+
+Current startup migration preserves legacy PHQ-9 records and uses non-destructive insertion into the reusable assessment table. There is no automatic backup, restore wizard, encryption, or rollback mechanism. A backup remains mandatory before relying on migration behavior.
+
+## Windows Security and Code Signing
+
+The candidate is not code-signed. Windows Defender, Microsoft SmartScreen, or another security product may scan it or warn that it is an unfamiliar pre-release application with limited reputation. Users should allow normal scanning and must not be told to disable antivirus, suppress an actual detection, or override a warning they do not understand.
+
+Capture the exact security product, warning text, detected file, release filename, release source, and hash when investigating. Do not collect screenshots containing private health data or identifying paths. Code signing would improve publisher identity and reputation signals, but it is a future release-engineering improvement rather than evidence that a binary is safe.
+
 ## Size Reduction
 
 Current build script excludes common development-only modules such as test tooling, notebooks, and IPython. Inno Setup uses LZMA2 solid compression. Additional opportunities:
@@ -109,8 +147,10 @@ Current build script excludes common development-only modules such as test tooli
 Update these together for each release:
 
 - `packaging\build_release.ps1` `-Version`
+- `packaging\build_release.ps1` `-ArtifactRevision` when packaging content changes without an application-version change
 - `packaging\PHQ9Tracker.iss` `MyAppVersion`
 - Release zip and installer filenames
+- `packaging\requirements-release.txt`, `packaging\third_party_notice_manifest.json`, and `THIRD_PARTY_NOTICES` when runtime components change
 
 ## Validation Checklist
 
@@ -150,7 +190,7 @@ Iteration 008.2 passes all 59 automated tests in the dependency-complete environ
 
 ### Closed Alpha 1 candidate - 0.3.0-alpha.1
 
-The locally validated candidate is `PHQ9Tracker-Portable-0.3.0-alpha.1.zip` (43,654,431 bytes; SHA-256 `76DE3678AF9BF5C61CC0C0A318347E0F5E1C7F471A6112FE9431DA9A304F4C47`). It was packaged on August 31, 2026 from an uncommitted but validated worktree based on commit `4f4afa7eb2046b882325b8ada6df4690d9d4a854`; it must not be represented as a commit containing Iterations 008.1/008.2 or the Alpha documentation.
+The previously validated candidate is `PHQ9Tracker-Portable-0.3.0-alpha.1.zip` (43,654,431 bytes; 1,836 entries; SHA-256 `76DE3678AF9BF5C61CC0C0A318347E0F5E1C7F471A6112FE9431DA9A304F4C47`). It was packaged on August 31, 2026 from an uncommitted but validated worktree based on commit `4f4afa7eb2046b882325b8ada6df4690d9d4a854`; it must not be represented as a commit containing Iterations 008.1/008.2 or the Alpha documentation. It is retired from public redistribution because it lacks the project GPL and required third-party notices.
 
 The first PyInstaller attempt exposed a real release defect: automatic Tcl/Tk discovery excluded Tk. The build now validates and explicitly bundles the Python runtime's Tkinter package, Tcl/Tk libraries, and a portable runtime hook. The rebuilt candidate's ZIP contains no database or generated user output. A clean extraction created a blank database in the portable folder before GUI initialization; automated portable-routing coverage also passes. The exact packaged executable completed fictional GUI persistence, Review/chart/keyboard, guarded-date, unsaved-change, History/manage, PDF, workbook, collision-safe output, and output-content checks in a normal desktop launch. The desktop control path could not invoke the batch launcher directly, so that full GUI pass used installed-mode LocalAppData while portable containment was verified separately. This is a locally validated candidate, not distribution authorization.
 
@@ -160,7 +200,23 @@ On August 31, Daniel independently checked the actual ZIP on his Windows develop
 
 Later that day, Daniel transferred the exact candidate ZIP to a volunteer's separate Windows computer. The volunteer received and extracted it there, launched and used the packaged application, and reported through Daniel that all behavior exercised worked. No Python, Tkinter, or other development runtime was installed or prepared. This closes the identified separate-Windows extraction-and-launch gate to the extent observed, while not claiming a pristine VM or fresh Windows image, specific security-prompt behavior, or exact persistence/output subtests. It is separate from both earlier validation paths.
 
-Remaining distribution gates include explicit Form-publication authorization followed by signed-out/private-browser checks, real tester IDs/recruitment and acknowledgments, the end-to-end fictional dry run, resolution or acceptance of any unobserved Windows security-prompt detail, and Daniel's final go/no-go and distribution authorization.
+The formal Closed Alpha distribution gates are historical and superseded. The rewritten public history is now at `156cf2e331cdf9224275ca6de9a286dbad012f19`, and Daniel selected GPLv3. Public repository and binary-release gates still require a notice-complete exact ZIP that passes current GUI launch validation, final privacy/status audits, review and commit of the pending changes, accurate unsigned-binary warnings, and Daniel's separate authorization for each visibility or distribution action.
+
+### Iteration 009 notice-complete packaging attempt
+
+On September 7, 2026, the exact retired ZIP was verified and repackaged without changing `PHQ9Tracker.exe` (executable SHA-256 `0C8D26741BF00DC53E3533F6E8580993BB2B52A20E968FD1134F2ED22D91CE74`). The resulting `PHQ9Tracker-Portable-0.3.0-alpha.1-redistribution.1.zip` was 43,790,609 bytes with 1,916 entries and SHA-256 `CC1EDC4E9F2A0977C13E931308B7DC3C7B32FD4C2345A6D6221AA75F9B690249`. Its root GPL and all 35 repository notice/index files matched byte-for-byte, and it contained no database, report, workbook, CSV, log, screenshot, or validation data.
+
+Two separate packaged command-line processes read a persistent fictional database containing 14 PHQ-9 records, 14 GAD-7 records, two notes, and three treatment events, then generated two PDFs and two eight-sheet workbooks without overwriting the earlier outputs. The five-page PDF passed extraction and page-by-page rendered inspection. The workbook passed relationship, no-merge, filter/freeze, content, formula-error, and eight-sheet rendered inspection.
+
+The required GUI launch did not pass. A clean extraction created the expected blank portable database, but both the batch launcher and the unchanged historical executable terminated with `_tkinter.TclError: Can't find a usable init.tcl`. The active Python 3.14.5 installation also failed its own Tcl initialization, and a fresh Python 3.14 package build reproduced the same error; that build was rejected. Because a current exact-artifact launch is mandatory, the notice-complete ZIP is a rejected validation artifact, not a redistribution-ready candidate. Its folder and ZIP were moved out of `release/` into ignored validation work so they cannot be mistaken for publishable output. No separate-machine evidence applies to its hash, and no commit, upload, tag, release, or distribution is authorized from this result.
+
+### Iteration 009 Tcl/Tk repair candidate
+
+On September 8, 2026, the failure was reproduced in both Python 3.14.5 and an isolated official CPython 3.12.10/Tcl/Tk 8.6.15 environment. All required Tcl/Tk files existed and matched the intended versions. Direct Tcl diagnostics showed that path normalization under the sandboxed Windows profile dropped or doubled path components; the same libraries initialized successfully when addressed through Windows extended paths. The packaging runtime hook and new pre-import entry point now establish those paths explicitly. Application source and behavior were not changed.
+
+The full pinned rebuild produced `PHQ9Tracker-Portable-0.3.0-alpha.1-redistribution.2.zip` (43,745,615 bytes; 1,910 entries; 96,483,945 uncompressed bytes; SHA-256 `5A43D176103FCEDBA1FBD36F01C78FDD88237FB27F369C859A9B37C8F497D1DA`). Its executable SHA-256 is `D914BDB42E89093959467717A427F6238AD5B99629A635E0E1BE31EDC44E2E59`. The exact ZIP passed integrity, privacy, GPL/notice, normal/short extraction, direct/batch startup-liveness, portable blank-database, fictional persistence, repeated PDF/workbook, collision, rendered-output, reset/relaunch, compilation, and all 61 automated tests.
+
+Daniel subsequently completed the required hands-on GUI walkthrough against that exact `.2` ZIP on his development workstation. He reported successful fresh extraction and batch launch; fictional PHQ-9/GAD-7 entry with a note and treatment event; close/reopen persistence; normal Review/chart and exercised keyboard/date behavior; sensible unsaved-change handling; two collision-safe GUI PDF generations; two collision-safe GUI Analysis Workbook generations; Open Reports Folder opening the correct folder; and in-app delete/reset followed by close/reopen confirmation that the data was gone and the application relaunched normally. He observed no Windows Defender or SmartScreen prompt. This record does not add detail beyond Daniel's report and is not separate-machine validation of the `.2` hash. The artifact remains quarantined, and no upload, tag, release, distribution, or visibility change is authorized without Daniel's separate approval.
 
 On August 15, 2026, PyInstaller 6.22.1 successfully created the folder-based application, `release\PHQ9Tracker-Portable-0.2.0\`, and `release\PHQ9Tracker-Portable-0.2.0.zip`. Inspection before first launch confirmed that neither the portable folder nor the ZIP contained `.sqlite`, `.db`, or `.sqlite3` files. The first packaged launch created `phq9_tracker.sqlite` inside the portable folder as designed. Review, History / Manage Entries, Treatment Events, Clinician Report, and How Scoring Works opened cleanly with no prior data.
 
