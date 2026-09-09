@@ -2,7 +2,7 @@
 
 ## Supported Version
 
-`0.3.0-alpha.1` is pre-release software. No Windows binary is currently approved for public redistribution because the latest notice-complete packaging attempt did not pass current GUI launch validation. The software is not code-signed, has not received a formal third-party security audit, and should not be treated as a clinically validated or regulated product.
+`0.3.0-alpha.1` is pre-release software. The current notice-complete `redistribution.2` candidate passed Daniel's required hands-on development-workstation GUI walkthrough, during which he observed no Windows Defender or SmartScreen prompt. It has not received separate-machine validation, is not approved for public distribution, and has not been released as a public binary. The software is not code-signed, has not received a formal third-party security audit, and should not be treated as a clinically validated or regulated product.
 
 ## Reporting a Software Security Issue
 

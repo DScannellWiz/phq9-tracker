@@ -133,7 +133,7 @@ September 7 notice-only attempt and source checks:
 September 8 repair and rebuilt-candidate checks:
 
 - Reproduced the failure in the active Python 3.14.5 runtime and in a controlled Python 3.12.10/Tcl/Tk 8.6.15 runtime, proving that missing files and version mismatch were not the cause.
-- Isolated the failure to Tcl path normalization in the current sandboxed Windows profile. Tcl removed or doubled path components directly below `C:\Users\Acer`; the same libraries initialized successfully when supplied as Windows extended paths (`//?/C:/...`).
+- Isolated the failure to Tcl path normalization in the current sandboxed Windows profile. Tcl removed or doubled path components directly below `C:\Users\<local-user>`; the same libraries initialized successfully when supplied as Windows extended paths (`//?/C:/...`).
 - Added a runtime hook and pre-import entry point that set `TCL_LIBRARY` and `TK_LIBRARY` to explicit extended paths inside the PyInstaller bundle. The release verifier uses the same normalization for its source-runtime gate.
 - Updated the release build to default to `redistribution.2`, use the pre-import entry point, fail on a PyInstaller error, and verify the executable, `init.tcl`, `tk.tcl`, `_tkinter.pyd`, and Tcl/Tk DLLs before packaging.
 - Verified the controlled runtime as Python 3.12.10, Tcl/Tk 8.6.15, PyInstaller 6.22.1, and all other manifest-pinned versions before building.

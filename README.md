@@ -1,4 +1,4 @@
-Current as of: 2026-09-07
+Current as of: 2026-09-08
 Last substantive update: 2026-09-07
 
 # Mental Health Tracker
@@ -9,7 +9,7 @@ The project began as a personal response to the **Tyranny of Temporal Distance**
 
 ## Maturity and Availability
 
-The current candidate is `0.3.0-alpha.1`. It is alpha/pre-release software for Windows 11 64-bit, not a finished or clinically validated product. It has passed 59 automated tests, fictional packaged workflow checks, owner testing, and a separate-Windows receipt/extraction/launch/general-use check. That evidence does not guarantee that it will work on every computer or be useful for every person.
+The current `0.3.0-alpha.1-redistribution.2` candidate is alpha/pre-release software for Windows 11 64-bit, not a finished or clinically validated product. It has passed 61 automated tests, fictional packaged workflow checks, and Daniel's hands-on development-workstation GUI walkthrough, but it has not received separate-machine validation. An older artifact received a limited separate-Windows receipt/extraction/launch/general-use check; that historical evidence does not apply to the current `.2` candidate. This evidence does not guarantee that the software will work on every computer or be useful for every person.
 
 No public binary download is available yet. If the project is made public, the recommended nontechnical download path is a GitHub Release with `PHQ9Tracker-Portable-0.3.0-alpha.1.zip` attached and clearly marked as a pre-release. Do not download executables or ZIP files from reposts or unofficial mirrors.
 
