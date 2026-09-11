@@ -85,6 +85,7 @@ PROJECT_ROOT = APP_DIR.parents[1] if APP_DIR.parent.name == "src" else APP_DIR.p
 DATA_DIR = PROJECT_ROOT / "data"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 ICON_PATH = PROJECT_ROOT / "packaging" / "assets" / "PHQ9_Tracker.ico"
+APPLICATION_NAME = "Len"
 
 
 def default_db_path() -> Path:
@@ -158,7 +159,7 @@ DAILY_SCORE_LABEL = "Daily Severity Score"
 FREQUENCY_SCORE_LABEL = "14-Day Symptom Frequency Score"
 ANALYSIS_WORKBOOK_SCHEMA_VERSION = "1.1"
 COMPACT_SPINBOX_PADDING = (2, 0)
-SCORING_EXPLANATION = """Mental Health Tracker calculates two related but different measurements.
+SCORING_EXPLANATION = f"""{APPLICATION_NAME} calculates two related but different measurements.
 
 Daily Severity Score
 Each PHQ-9 or GAD-7 item is rated from 0 (symptom not present) to 3 (high symptom severity). The item responses are summed for that date. This answers: How severe were the reported symptoms on this particular day?
@@ -1415,7 +1416,7 @@ def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
     metadata = [
         {"metadata_key": "workbook_schema_version", "metadata_value": ANALYSIS_WORKBOOK_SCHEMA_VERSION, "description": "Version of this normalized export layout."},
         {"metadata_key": "generated_at", "metadata_value": datetime.now().astimezone().isoformat(timespec="seconds"), "description": "Local generation timestamp in ISO 8601 format."},
-        {"metadata_key": "application", "metadata_value": "Mental Health Tracker", "description": "Application that generated the workbook."},
+        {"metadata_key": "application", "metadata_value": APPLICATION_NAME, "description": "Application that generated the workbook."},
         {"metadata_key": "date_format", "metadata_value": "YYYY-MM-DD", "description": "Calendar-date format used in all date fields."},
         {"metadata_key": "daily_relationship", "metadata_value": "daily_record_id", "description": "Join records across worksheets by the deterministic day:YYYY-MM-DD identifier."},
         {"metadata_key": "assessment_relationship", "metadata_value": "assessment_record_id", "description": "Join Item Responses to Daily Assessments by assessment_record_id."},
@@ -1818,7 +1819,7 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
     )
 
     story = [
-        Paragraph("Mental Health Tracker Clinician Discussion Report", styles["Title"]),
+        Paragraph(f"{APPLICATION_NAME} Clinician Discussion Report", styles["Title"]),
         Paragraph(f"Date range: {start} to {end}", styles["Normal"]),
         Paragraph(DISCLAIMER, styles["BodyText"]),
         Spacer(1, 0.18 * inch),
@@ -2228,7 +2229,7 @@ CHART_INTERACTION_HELP = (
 class PHQ9App(Tk):
     def __init__(self):
         super().__init__()
-        self.title("Mental Health Tracker")
+        self.title(APPLICATION_NAME)
         self.geometry("1180x780")
         self.minsize(980, 680)
         self.configure(bg="#F8FAFC")
@@ -2277,7 +2278,7 @@ class PHQ9App(Tk):
     def create_widgets(self):
         header = Frame(self, bg="#172033", padx=16, pady=12)
         header.pack(fill="x")
-        Label(header, text="Mental Health Tracker", fg="white", bg="#172033", font=("Segoe UI", 18, "bold")).pack(side=LEFT)
+        Label(header, text=APPLICATION_NAME, fg="white", bg="#172033", font=("Segoe UI", 18, "bold")).pack(side=LEFT)
         Label(
             header,
             text="All data is stored locally in SQLite. No upload or cloud sync is performed by this app.",
@@ -3080,7 +3081,7 @@ class PHQ9App(Tk):
 
     def export_analysis_file(self):
         try:
-            path = next_available_output_path(f"Mental_Health_Tracker_Analysis_{date.today().isoformat()}.xlsx")
+            path = next_available_output_path(f"Len_Analysis_{date.today().isoformat()}.xlsx")
             if pd is None:
                 run_bundled_cli(["--analysis-export", str(path)], ("pandas", "openpyxl"))
             else:
@@ -3192,7 +3193,7 @@ class PHQ9App(Tk):
             messagebox.showinfo("Report unavailable", str(exc))
             return
         try:
-            target = next_available_output_path(f"Mental_Health_Tracker_Report_{start}_to_{end}.pdf")
+            target = next_available_output_path(f"Len_Report_{start}_to_{end}.pdf")
             if colors is None or PILImage is None:
                 run_bundled_cli(
                     ["--report-pdf", str(target)],
@@ -3206,7 +3207,7 @@ class PHQ9App(Tk):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Local Mental Health Tracker")
+    parser = argparse.ArgumentParser(description=f"Local {APPLICATION_NAME}")
     parser.add_argument("--import", dest="import_path", help="Import an Excel workbook, then exit unless --launch is also set.")
     parser.add_argument("--launch", action="store_true", help="Launch the GUI after command-line actions.")
     parser.add_argument("--report-pdf", help="Generate a full-history PDF report at this output path.")

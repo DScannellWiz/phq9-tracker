@@ -1,9 +1,15 @@
-Current as of: 2026-09-08
-Last substantive update: 2026-09-08
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 # Development Journal
 
 This journal records the human context behind significant product and engineering choices. Formal narrative capture begins around Iteration 007; the earlier entries below are a concise reconstruction from surviving documentation rather than contemporaneous notes.
+
+## September 10, 2026: Product Renamed to Len
+
+After Iteration 009, the current product and repository identity changed from **Mental Health Tracker** to **Len**, with the canonical repository at [DScannellWiz/len-mental-health](https://github.com/DScannellWiz/len-mental-health). The rename updates current-facing application, report, workbook, launcher, installer, and project-documentation language.
+
+The change deliberately preserves technical compatibility identifiers that existing installations, data paths, scripts, and imports may rely on: `phq9_tracker`, `PHQ9Tracker.exe`, `PHQ9_TRACKER_*`, `%LOCALAPPDATA%\PHQ9Tracker`, `phq9_tracker.sqlite`, and the existing icon filename. Historical iteration, alpha, release, and validation records also retain the names that were accurate when those records were created. In particular, the `v0.3.0-alpha.1` tag and exact artifacts were neither rebuilt nor relabeled.
 
 ## Reconstructed Prehistory
 

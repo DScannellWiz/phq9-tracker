@@ -1,5 +1,7 @@
-#define MyAppName "Mental Health Tracker"
-#define MyAppVersion "0.3.0-alpha.1"
+#define MyAppName "Len"
+#ifndef MyAppVersion
+  #error MyAppVersion must be supplied explicitly. The frozen 0.3.0-alpha.1 version must not be rebuilt from post-rename source.
+#endif
 #define MyAppPublisher "Local"
 #define MyAppExeName "PHQ9Tracker.exe"
 
@@ -8,11 +10,11 @@ AppId={{6E5B9209-9A57-4917-9DC0-2F78F26C3B0A}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\Mental Health Tracker
-DefaultGroupName=Mental Health Tracker
+DefaultDirName={autopf}\Len
+DefaultGroupName=Len
 DisableProgramGroupPage=no
 OutputDir=..\release
-OutputBaseFilename=PHQ9Tracker-Setup-{#MyAppVersion}
+OutputBaseFilename=Len-Setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -27,9 +29,9 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "..\dist\PHQ9Tracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Mental Health Tracker"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{group}\Uninstall Mental Health Tracker"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Mental Health Tracker"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\Len"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{group}\Uninstall Len"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\Len"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch Mental Health Tracker"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch Len"; Flags: nowait postinstall skipifsilent

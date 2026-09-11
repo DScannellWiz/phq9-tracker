@@ -1,10 +1,14 @@
 param(
-    [string]$Version = "0.3.0-alpha.1",
-    [string]$ArtifactRevision = "redistribution.2",
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
+    [string]$ArtifactRevision = "",
     [string]$Python = ""
 )
 
 $ErrorActionPreference = "Stop"
+if ($Version -eq "0.3.0-alpha.1") {
+    throw "Version 0.3.0-alpha.1 is frozen. Build Len with a newer version."
+}
 $Root = Split-Path -Parent $PSScriptRoot
 $Dist = Join-Path $Root "dist"
 $Build = Join-Path $Root "build"
@@ -107,7 +111,7 @@ foreach ($RequiredBundlePath in $RequiredBundlePaths) {
 Copy-Item -LiteralPath (Join-Path $Root "LICENSE") -Destination (Join-Path $DistApp "LICENSE")
 Copy-Item -Recurse -LiteralPath (Join-Path $Root "THIRD_PARTY_NOTICES") -Destination (Join-Path $DistApp "THIRD_PARTY_NOTICES")
 
-$PortableDir = Join-Path $PortableOut "PHQ9Tracker-Portable-$ArtifactLabel"
+$PortableDir = Join-Path $PortableOut "Len-Portable-$ArtifactLabel"
 if (Test-Path $PortableDir) {
     $ExpectedPortableRoot = [IO.Path]::GetFullPath($PortableOut).TrimEnd('\') + '\'
     $ResolvedPortableDir = [IO.Path]::GetFullPath($PortableDir)
@@ -117,7 +121,7 @@ if (Test-Path $PortableDir) {
     Remove-Item -Recurse -Force $PortableDir
 }
 Copy-Item -Recurse $DistApp $PortableDir
-Set-Content -Path (Join-Path $PortableDir "Launch Portable Mental Health Tracker.bat") -Value @"
+Set-Content -Path (Join-Path $PortableDir "Launch Portable Len.bat") -Value @"
 @echo off
 setlocal
 set PHQ9_TRACKER_PORTABLE=1
@@ -125,7 +129,7 @@ cd /d "%~dp0"
 "%~dp0PHQ9Tracker.exe"
 "@
 
-$ZipPath = Join-Path $PortableOut "PHQ9Tracker-Portable-$ArtifactLabel.zip"
+$ZipPath = Join-Path $PortableOut "Len-Portable-$ArtifactLabel.zip"
 if (Test-Path $ZipPath) {
     Remove-Item -Force $ZipPath
 }

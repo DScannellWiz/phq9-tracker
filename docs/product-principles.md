@@ -1,9 +1,9 @@
-Current as of: 2026-08-15
-Last substantive update: 2026-08-08
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 # Product Principles
 
-These principles define the stable philosophical core of the Mental Health Tracker. They guide product language, workflows, reports, and future technical decisions.
+These principles define the stable philosophical core of Len. They guide product language, workflows, reports, and future technical decisions.
 
 ## Stable Philosophical Core
 

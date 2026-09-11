@@ -1,5 +1,5 @@
-Current as of: 2026-08-30
-Last substantive update: 2026-08-30
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 BUG: Report generation dependency detection
 
@@ -87,10 +87,10 @@ Application Branding
 Status: Open; packaged runtime discrepancy confirmed in Iteration 007.2
 
 Description:
-Executable and running application do not consistently use the Mental Health Tracker application icon.
+Executable and running application do not consistently use the Len application icon.
 
 Expected:
-- EXE icon uses PHQ9_Tracker.ico (or future MentalHealthTracker.ico)
+- EXE icon uses the current `PHQ9_Tracker.ico` compatibility asset (or a future Len-specific replacement)
 - Window icon uses the same icon
 - Installer uses the same icon
 - Desktop shortcut defaults to the same icon

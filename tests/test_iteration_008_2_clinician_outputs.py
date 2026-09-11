@@ -79,6 +79,7 @@ class Iteration0082ClinicianOutputTests(unittest.TestCase):
         text = " ".join(
             " ".join(page.extract_text() or "" for page in PdfReader(str(pdf_path)).pages).split()
         )
+        self.assertIn("Len Clinician Discussion Report", text)
         self.assertIn("Current 14-Day Item Profile", text)
         self.assertIn("Present days", text)
         self.assertIn("14 of 14", text)
@@ -142,15 +143,18 @@ class Iteration0082OutputDiscoveryTests(unittest.TestCase):
         target = object()
         with patch.object(app, "available_report_date_range", return_value=("2026-08-01", "2026-08-14")), patch.object(
             app, "next_available_output_path", return_value=pdf_path
-        ), patch.object(app, "generate_report") as generate, patch.object(app, "offer_to_open_generated_file") as offer:
+        ) as next_path, patch.object(app, "generate_report") as generate, patch.object(app, "offer_to_open_generated_file") as offer:
             app.PHQ9App.create_report(target)
+            next_path.assert_called_once_with("Len_Report_2026-08-01_to_2026-08-14.pdf")
             generate.assert_called_once_with("2026-08-01", "2026-08-14", str(pdf_path))
             offer.assert_called_once_with(pdf_path, "PDF report")
 
         with patch.object(app, "next_available_output_path", return_value=workbook_path), patch.object(
             app, "export_analysis_workbook"
-        ) as export, patch.object(app, "offer_to_open_generated_file") as offer:
+        ) as export, patch.object(app, "offer_to_open_generated_file") as offer, patch.object(app, "date") as current_date:
+            current_date.today.return_value.isoformat.return_value = "2026-09-10"
             app.PHQ9App.export_analysis_file(target)
+            app.next_available_output_path.assert_called_once_with("Len_Analysis_2026-09-10.xlsx")
             export.assert_called_once_with(str(workbook_path))
             offer.assert_called_once_with(workbook_path, "Analysis workbook")
 

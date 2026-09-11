@@ -1,11 +1,11 @@
-Current as of: 2026-09-08
-Last substantive update: 2026-09-08
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 # Build and Release Notes
 
 ## Current Public-Release Posture
 
-`0.3.0-alpha.1` remains explicitly alpha/pre-release software. No Windows binary is currently approved for public redistribution. The Tcl initialization crash has been repaired in the `redistribution.2` candidate, and that exact hash passed Daniel's required hands-on development-workstation GUI walkthrough. The repository contains no committed release ZIP, and none should be added. After every remaining gate passes and Daniel separately authorizes distribution, the recommended nontechnical path is a GitHub Release with the exact validated ZIP attached, the release marked as a pre-release, and its SHA-256 shown in the release notes.
+`0.3.0-alpha.1` remains explicitly alpha/pre-release software. No Windows binary is currently approved for public redistribution. The Tcl initialization crash has been repaired in the `redistribution.2` candidate, and that exact hash passed Daniel's required hands-on development-workstation GUI walkthrough. The repository contains no committed release ZIP, and none should be added. That candidate and tag are frozen Mental Health Tracker-era records: do not rebuild or relabel them from post-rename source. Any future Len-branded package must use a newer version and complete exact-artifact validation before Daniel separately authorizes distribution.
 
 Do not create a tag, GitHub Release, upload, or public announcement merely because the source and candidate tests pass. Repository visibility, source publication, binary distribution, and social-media promotion are separate owner decisions.
 
@@ -13,7 +13,7 @@ Do not create a tag, GitHub Release, upload, or public announcement merely becau
 
 Use a folder-based PyInstaller build (`--onedir`) rather than a single-file executable. This keeps startup faster, makes troubleshooting easier, reduces antivirus false positives, and supports bundled assets and future report templates more cleanly.
 
-The executable name remains `PHQ9Tracker.exe` for backward compatibility during the transition, while the visible application name is now **Mental Health Tracker**.
+The visible application name is **Len**. The executable remains `PHQ9Tracker.exe`, and the Python package, environment variables, database filename, LocalAppData folder, and icon asset retain their PHQ9-oriented names for backward compatibility and existing-data continuity.
 
 ## Dependencies
 
@@ -42,16 +42,16 @@ The release script performs dependency and licensing preflights before invoking 
 
 ```powershell
 cd <project-root>
-.\packaging\build_release.ps1 -Version 0.3.0-alpha.1 -ArtifactRevision redistribution.2
+.\packaging\build_release.ps1 -Version <next-version>
 ```
 
 This creates:
 
 - `dist\PHQ9Tracker\` folder-based application build
-- `release\PHQ9Tracker-Portable-0.3.0-alpha.1-redistribution.2\` portable folder
-- `release\PHQ9Tracker-Portable-0.3.0-alpha.1-redistribution.2.zip` portable archive
+- `release\Len-Portable-<next-version>\` portable folder
+- `release\Len-Portable-<next-version>.zip` portable archive
 
-The `redistribution.2` suffix is an artifact revision, not an application-version change. It distinguishes the Tcl/Tk startup repair from the rejected `redistribution.1` notice-only attempt without silently changing `0.3.0-alpha.1`. Every folder, ZIP, and future installer produced from the folder build includes the project `LICENSE` at its root and the complete `THIRD_PARTY_NOTICES` directory.
+The current build script requires an explicit version and rejects the frozen `0.3.0-alpha.1` value. Use `-ArtifactRevision` only when packaging content changes without an application-version change. Every folder, ZIP, and future installer produced from the folder build includes the project `LICENSE` at its root and the complete `THIRD_PARTY_NOTICES` directory.
 
 The release verifier must initialize the exact Python 3.12.10/Tcl/Tk 8.6.15 runtime and match all package versions before PyInstaller runs. The build explicitly bundles the Tkinter package, Tcl/Tk libraries, extension, and DLLs, then fails if any required bundle file is absent. On Windows, the runtime hook and `packaging\portable_entry.py` set `TCL_LIBRARY` and `TK_LIBRARY` to extended (`//?/`) bundle paths before application import. This prevents Tcl path canonicalization from dropping sandboxed user-profile path components; it is not a machine-wide environment change.
 
@@ -71,7 +71,7 @@ Do not delete notices merely because a third-party license is GPL-compatible. Co
 
 The portable launcher sets `PHQ9_TRACKER_PORTABLE=1`, which keeps `phq9_tracker.sqlite` and the `reports` folder inside the portable folder. Starting `PHQ9Tracker.exe` directly does not set portable mode and instead uses `%LOCALAPPDATA%\PHQ9Tracker`. Public instructions must tell portable users to use the batch launcher consistently.
 
-Portable builds retain the executable icon and create no system shortcuts. The launcher is named `Launch Portable Mental Health Tracker.bat`.
+Future Len-branded portable builds retain the executable icon and create no system shortcuts. The launcher is named `Launch Portable Len.bat`. Historical `0.3.0-alpha.1` artifacts keep their original launcher names and bytes.
 
 ## Application Icon
 
@@ -88,10 +88,10 @@ This icon was copied from the user's shared application icon template folder and
 Install Inno Setup, then compile:
 
 ```powershell
-iscc .\packaging\PHQ9Tracker.iss
+iscc /DMyAppVersion=<next-version> .\packaging\PHQ9Tracker.iss
 ```
 
-The installer deploys the folder-based app under Program Files, creates a Start Menu shortcut under **Mental Health Tracker**, selects desktop-shortcut creation by default, and registers an uninstaller in Windows Apps & Features. Both shortcuts explicitly use the executable's embedded Mental Health Tracker icon.
+The installer deploys the folder-based app under a **Len** Program Files folder, creates a Start Menu shortcut under **Len**, selects desktop-shortcut creation by default, and registers an uninstaller in Windows Apps & Features. Both shortcuts explicitly use the executable's embedded Len icon.
 
 Installed builds store user data in:
 

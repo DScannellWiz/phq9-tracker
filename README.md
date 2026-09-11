@@ -1,17 +1,19 @@
-Current as of: 2026-09-08
-Last substantive update: 2026-09-07
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
-# Mental Health Tracker
+# Len
 
-Mental Health Tracker is a privacy-first, local-first Windows desktop application for recording PHQ-9 and GAD-7 check-ins over time. It combines daily assessment responses with optional notes and treatment events, then creates a readable PDF conversation aid and a normalized XLSX Analysis Workbook.
+Len is a privacy-first, local-first Windows desktop application for recording PHQ-9 and GAD-7 check-ins over time. It combines daily assessment responses with optional notes and treatment events, then creates a readable PDF conversation aid and a normalized XLSX Analysis Workbook.
+
+Canonical repository: [github.com/DScannellWiz/len-mental-health](https://github.com/DScannellWiz/len-mental-health)
 
 The project began as a personal response to the **Tyranny of Temporal Distance**: the difficulty of accurately describing weeks or months of symptoms during a short appointment when the most recent day can overshadow the broader pattern. See [Project Origins](PROJECT_ORIGINS.md) for the motivation and design history.
 
 ## Maturity and Availability
 
-The current `0.3.0-alpha.1-redistribution.2` candidate is alpha/pre-release software for Windows 11 64-bit, not a finished or clinically validated product. It has passed 61 automated tests, fictional packaged workflow checks, and Daniel's hands-on development-workstation GUI walkthrough, but it has not received separate-machine validation. An older artifact received a limited separate-Windows receipt/extraction/launch/general-use check; that historical evidence does not apply to the current `.2` candidate. This evidence does not guarantee that the software will work on every computer or be useful for every person.
+The frozen, pre-rename `0.3.0-alpha.1-redistribution.2` candidate is alpha/pre-release software for Windows 11 64-bit, not a finished or clinically validated product. It has passed 61 automated tests, fictional packaged workflow checks, and Daniel's hands-on development-workstation GUI walkthrough, but it has not received separate-machine validation. An older artifact received a limited separate-Windows receipt/extraction/launch/general-use check; that historical evidence does not apply to the `.2` candidate. This evidence does not guarantee that the software will work on every computer or be useful for every person.
 
-No public binary download is available yet. If the project is made public, the recommended nontechnical download path is a GitHub Release with `PHQ9Tracker-Portable-0.3.0-alpha.1.zip` attached and clearly marked as a pre-release. Do not download executables or ZIP files from reposts or unofficial mirrors.
+No public binary download is available yet. The existing `PHQ9Tracker-Portable-0.3.0-alpha.1*` files and tag retain their historical Mental Health Tracker-era names and are not rebuilt or relabeled by this rename. Any future Len-branded binary must use a new version, pass exact-artifact validation, and be published only with separate authorization. Do not download executables or ZIP files from reposts or unofficial mirrors.
 
 ## Current Features
 
@@ -31,7 +33,7 @@ Source use is intended for developers and requires Python 3.12 or later on Windo
 
 ```powershell
 python -m pip install -r requirements.txt
-& ".\Launch Mental Health Tracker.bat"
+& ".\Launch Len.bat"
 ```
 
 Run those commands from the project root. The launcher adds the repository's `src` folder to Python's import path and uses a project-local `.venv` or `venv` when available.
@@ -43,7 +45,7 @@ When an official portable ZIP becomes available:
 1. Allow Windows Security or your antivirus product to scan the downloaded ZIP.
 2. Extract the entire ZIP into a normal user-writable folder. Do not run the app from inside the ZIP.
 3. Keep all extracted files together.
-4. Start it with **Launch Portable Mental Health Tracker.bat** whenever you want portable-mode storage.
+4. Start it with **Launch Portable Len.bat** whenever you want portable-mode storage.
 
 Starting `PHQ9Tracker.exe` directly does not enable portable mode. A direct EXE launch uses the installed-mode data location under `%LOCALAPPDATA%\PHQ9Tracker` instead of the extracted folder. Switching launch methods can therefore make an existing history appear missing even though it remains in the other location.
 
@@ -61,7 +63,7 @@ The SQLite database, PDFs, and workbooks can contain highly sensitive informatio
 
 Before replacing or updating the application:
 
-1. Close Mental Health Tracker.
+1. Close Len.
 2. Identify the storage mode you actually used from the table above.
 3. Copy the database and any reports you want to retain to a separate backup location.
 4. For a portable update, extract the new release into a new folder rather than overwriting the old folder. Copy the backed-up `phq9_tracker.sqlite` into the new extracted folder before launching it with the portable batch launcher.
@@ -94,7 +96,7 @@ If a warning appears, stop and report the exact product name, warning text, dete
 
 ## Medical and Safety Disclaimer
 
-Mental Health Tracker is not medical advice, a diagnostic tool, a treatment recommendation, a medical device claim, an emergency service, or crisis support. It is not a substitute for a qualified healthcare professional. Scores, summaries, charts, and reports can be incomplete or misleading when data is missing and must be interpreted in context.
+Len is not medical advice, a diagnostic tool, a treatment recommendation, a medical device claim, an emergency service, or crisis support. It is not a substitute for a qualified healthcare professional. Scores, summaries, charts, and reports can be incomplete or misleading when data is missing and must be interpreted in context.
 
 If you may be in immediate danger or need urgent help, contact local emergency services or an appropriate crisis resource. Do not use this repository, its issue tracker, or the project support email for emergency or clinical support.
 
@@ -111,7 +113,7 @@ If you may be in immediate danger or need urgent help, contact local emergency s
 
 Copyright © 2026 Daniel Scannell.
 
-Mental Health Tracker is licensed under the [GNU General Public License version 3](LICENSE) (`GPL-3.0-only`). Users may use, study, modify, redistribute, and commercially use the software subject to GPLv3's terms, including the source-availability and same-license requirements that apply when covered modified versions are distributed. The license does not prohibit commercial use or add medical-data restrictions.
+Len is licensed under the [GNU General Public License version 3](LICENSE) (`GPL-3.0-only`). Users may use, study, modify, redistribute, and commercially use the software subject to GPLv3's terms, including the source-availability and same-license requirements that apply when covered modified versions are distributed. The license does not prohibit commercial use or add medical-data restrictions.
 
 Windows binary distributions also contain third-party software under compatible licenses. Their required verbatim notices are preserved in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES/README.md); those notices do not replace or narrow GPLv3.
 

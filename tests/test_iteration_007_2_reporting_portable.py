@@ -92,6 +92,7 @@ class NormalizedAnalysisWorkbookTests(unittest.TestCase):
             for key, value, _description in workbook["Metadata"].iter_rows(min_row=2, values_only=True)
         }
         self.assertEqual(metadata["workbook_schema_version"], app.ANALYSIS_WORKBOOK_SCHEMA_VERSION)
+        self.assertEqual(metadata["application"], "Len")
         self.assertEqual(metadata["daily_summary_authority"], "derived")
         self.assertGreater(workbook["14-Day Item Profile"].column_dimensions["G"].width, 30)
         workbook.close()

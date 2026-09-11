@@ -1,11 +1,13 @@
-Current as of: 2026-08-29
-Last substantive update: 2026-08-29
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 # Project Origins
 
 The Mental Health Tracker began with a practical human problem: it can be difficult to recall symptoms accurately across the time between appointments. That gap creates a kind of **tyranny of temporal distance**. The present can overshadow the recent past, important details can fade, and a person may arrive at a clinical conversation without a clear account of what happened between visits.
 
 The first response to that problem was a spreadsheet. It provided a way to record PHQ-9 responses over time and retain information that memory alone might not preserve. The spreadsheet later became a local PHQ-9 Tracker, giving the same basic idea a more intentional application workflow. As the project grew to support reusable assessments and GAD-7, it became the broader **Mental Health Tracker**.
+
+After Iteration 009, the current product name became **Len**. The earlier names remain in this origin record because they accurately describe the product's development stages.
 
 The project is privacy-first and local-first by design. Mental health information is sensitive, so the user should retain control over where records are stored and when reports or exports are shared. Cloud services, automated sharing, and external interpretation are not assumed requirements.
 

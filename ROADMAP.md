@@ -1,5 +1,5 @@
-Current as of: 2026-09-07
-Last substantive update: 2026-09-07
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 # Roadmap
 
@@ -22,6 +22,14 @@ Build a privacy-first, local-only mental health tracking application that helps 
 - GitHub-ready project structure.
 - Automated tests.
 - Installer and portable build scripts.
+
+## Post-Iteration-009 Housekeeping: Len Product Rename - Completed
+
+The current product name is **Len**, and the canonical repository is [DScannellWiz/len-mental-health](https://github.com/DScannellWiz/len-mental-health). Current window, report, workbook, launcher, installer, README, and product-documentation branding now use Len.
+
+The `phq9_tracker` Python package, `PHQ9Tracker.exe`, `PHQ9_TRACKER_*` environment variables, `%LOCALAPPDATA%\PHQ9Tracker`, `phq9_tracker.sqlite`, and `PHQ9_Tracker.ico` remain compatibility identifiers. Preserving them avoids an unnecessary data-location migration and keeps existing development and packaging contracts stable.
+
+The `v0.3.0-alpha.1` tag, exact artifacts, Iteration 009 record, Closed Alpha archive, and dated validation/provenance statements retain their historical Mental Health Tracker and PHQ9Tracker names. The rename does not rebuild, relabel, validate, publish, or distribute those artifacts.
 
 ## Completed Iteration 005
 

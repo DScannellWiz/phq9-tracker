@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Mental Health Tracker is licensed under GNU GPL version 3. See the `LICENSE` file at the distribution root. The GPL does not replace the licenses and notices for third-party software included in the Windows package.
+Len is licensed under GNU GPL version 3. See the `LICENSE` file at the distribution root. The GPL does not replace the licenses and notices for third-party software included in the Windows package.
 
 This directory preserves the upstream license, copyright, and notice text required for the exact `0.3.0-alpha.1` Windows redistribution build. The text files are copied verbatim from the installed distributions or their matching source distributions. `packaging/third_party_notice_manifest.json` records their SHA-256 hashes, and the release build fails if a required file, hash, runtime version, or package version differs.
 

@@ -1,9 +1,9 @@
-Current as of: 2026-09-07
-Last substantive update: 2026-09-07
+Current as of: 2026-09-10
+Last substantive update: 2026-09-10
 
 # Privacy and Data Handling
 
-Mental Health Tracker is designed for local use. It does not intentionally upload PHQ-9 or GAD-7 responses, notes, treatment events, databases, reports, or workbooks. Local-first behavior reduces routine external exposure, but it is not a guarantee of privacy or security.
+Len is designed for local use. It does not intentionally upload PHQ-9 or GAD-7 responses, notes, treatment events, databases, reports, or workbooks. Local-first behavior reduces routine external exposure, but it is not a guarantee of privacy or security.
 
 ## Sensitive Local Files
 
@@ -17,7 +17,7 @@ Storage depends on how the application is started:
 | Packaged EXE launched directly or future installed build | `%LOCALAPPDATA%\PHQ9Tracker\phq9_tracker.sqlite` | `%LOCALAPPDATA%\PHQ9Tracker\reports` |
 | Source launcher | `data\phq9_tracker.sqlite` in the repository | `reports` in the repository |
 
-Starting the packaged EXE directly does not activate portable mode. Users who alternate between the EXE and **Launch Portable Mental Health Tracker.bat** can create two separate databases and may mistakenly believe data was lost.
+Starting the packaged EXE directly does not activate portable mode. Users who alternate between the EXE and **Launch Portable Len.bat** can create two separate databases and may mistakenly believe data was lost.
 
 ## Backup, Update, and Deletion
 
