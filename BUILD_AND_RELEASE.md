@@ -1,11 +1,13 @@
-Current as of: 2026-09-10
-Last substantive update: 2026-09-10
+Current as of: 2026-09-12
+Last substantive update: 2026-09-12
 
 # Build and Release Notes
 
 ## Current Public-Release Posture
 
-`0.3.0-alpha.1` remains explicitly alpha/pre-release software. No Windows binary is currently approved for public redistribution. The Tcl initialization crash has been repaired in the `redistribution.2` candidate, and that exact hash passed Daniel's required hands-on development-workstation GUI walkthrough. The repository contains no committed release ZIP, and none should be added. That candidate and tag are frozen Mental Health Tracker-era records: do not rebuild or relabel them from post-rename source. Any future Len-branded package must use a newer version and complete exact-artifact validation before Daniel separately authorizes distribution.
+`v0.4.0-alpha.1` is the proposed first Len-branded public prerelease. The exact candidate is `release\Len-Portable-0.4.0-alpha.1.zip` (43,804,004 bytes; 1,856 file entries; SHA-256 `38B17A47C9EC78F2568FAAE9DDAFC4B721C846D3BFD849766C92FBD5A6FBA277`) built from commit `c98c258c60f672f99a769a58a260de92484a4515`. It is not yet approved for public redistribution because Daniel's hands-on exact-hash GUI walkthrough and separate release authorization remain pending. The ignored ZIP must not be committed to Git.
+
+The `v0.3.0-alpha.1` tag and its Mental Health Tracker-era assets remain frozen historical records. Do not rebuild, overwrite, relabel, or use their validation evidence for the Len candidate.
 
 Do not create a tag, GitHub Release, upload, or public announcement merely because the source and candidate tests pass. Repository visibility, source publication, binary distribution, and social-media promotion are separate owner decisions.
 
@@ -179,6 +181,18 @@ Update these together for each release:
 - Confirm portable builds create no system shortcuts.
 
 ## Current Validation Status
+
+### Len public prerelease candidate - 0.4.0-alpha.1
+
+On September 12, 2026, the clean local `main` checkout and its cached `origin/main` both resolved to `c98c258c60f672f99a769a58a260de92484a4515`. This was not a live authenticated GitHub audit. The controlled Python 3.12.10 environment passed the release-license verifier with 34 notice files and 11 pinned package versions, and the full source suite passed 68 tests.
+
+The exact ZIP has a flat portable layout and includes `PHQ9Tracker.exe`, `Launch Portable Len.bat`, the canonical GPLv3 `LICENSE`, 35 third-party-notice file entries, and the required Tcl/Tk runtime files. Its pre-launch inventory contains no database, report, export, log, or other generated user-data file. Both direct execution and the portable launcher reached a responsive window titled **Len**. Direct execution wrote to an isolated LocalAppData path; the portable launcher wrote beside the executable. A 14-day fictional PHQ-9/GAD-7 dataset with 14 notes and two distinct same-day treatment-event types persisted across a portable restart. Deleting the isolated fictional database and relaunching produced zero assessment and treatment-event records.
+
+The packaged executable generated a five-page Len clinician PDF and an eight-sheet normalized workbook from the fictional data. PDF text and rendered-page inspection confirmed PHQ-9 and GAD-7 content, complete fictional notes, distinct Therapy and Physical Therapy events, item-9 context, safety text, readable charts/tables, and no clipping or overlap. Workbook checks confirmed 28 assessment rows, 224 item-response rows, 14 note rows, two treatment-event rows, 16 current-profile rows, valid Len/questionnaire metadata, no merged cells, and no formula-error markers. These generated files are validation evidence only and are not distributable release contents.
+
+Microsoft Defender command-line custom scans of the exact ZIP and extracted executable returned no threats. `PHQ9Tracker.exe` is not Authenticode-signed. Defender results are point-in-time evidence, not a guarantee of safety or future reputation behavior.
+
+Remaining gates: Daniel must perform and report the hands-on GUI checklist against the exact SHA-256 above, including the questionnaire selection/completion flow, safety-message placement, resizing and keyboard navigation, History/Review behavior, and visible PDF/workbook actions. Separate-machine validation has not been performed and must not be claimed. Installer compilation and validation remain outside this portable-only candidate. No tag, commit of release-specific changes, push, asset upload, GitHub Release, or public announcement is authorized.
 
 Iteration 007.2 passed 40 automated tests using isolated synthetic databases. A normalized workbook passed worksheet, relationship, no-merge, full-text, ISO-date, and same-day-event checks. A four-page synthetic clinician report was structurally checked, rendered to PNG, and visually inspected with complete long-form notes.
 

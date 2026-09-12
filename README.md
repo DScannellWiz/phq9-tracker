@@ -1,5 +1,5 @@
 Current as of: 2026-09-12
-Last substantive update: 2026-09-10
+Last substantive update: 2026-09-12
 
 # Len
 
@@ -11,9 +11,9 @@ The project began as a personal response to the **Tyranny of Temporal Distance**
 
 ## Maturity and Availability
 
-The frozen, pre-rename `0.3.0-alpha.1-redistribution.2` candidate is alpha/pre-release software for Windows 11 64-bit, not a finished or clinically validated product. It has passed 61 automated tests, fictional packaged workflow checks, and Daniel's hands-on development-workstation GUI walkthrough, but it has not received separate-machine validation. An older artifact received a limited separate-Windows receipt/extraction/launch/general-use check; that historical evidence does not apply to the `.2` candidate. This evidence does not guarantee that the software will work on every computer or be useful for every person.
+The planned first Len-branded public prerelease is `v0.4.0-alpha.1` for Windows 11 64-bit. It is alpha/pre-release software, not a finished or clinically validated product. A candidate built from commit `c98c258` has passed 68 automated tests, exact-archive and licensing checks, direct and portable startup/storage checks, fictional packaged PDF/workbook generation, rendered-output inspection, and Windows Defender scans. It has not yet completed Daniel's hands-on exact-hash GUI walkthrough or separate-machine validation. This evidence does not guarantee that the software will work on every computer or be useful for every person.
 
-No public binary download is available yet. The existing `PHQ9Tracker-Portable-0.3.0-alpha.1*` files and tag retain their historical Mental Health Tracker-era names and are not rebuilt or relabeled by this rename. Any future Len-branded binary must use a new version, pass exact-artifact validation, and be published only with separate authorization. Do not download executables or ZIP files from reposts or unofficial mirrors.
+No public binary download is available until Daniel approves the exact candidate and a GitHub prerelease is published. The proposed file is `Len-Portable-0.4.0-alpha.1.zip`; its approval hash and download link must come from the official `v0.4.0-alpha.1` GitHub prerelease. The existing `v0.3.0-alpha.1` tag and `PHQ9Tracker-Portable-0.3.0-alpha.1*` files remain frozen Mental Health Tracker-era records and are not rebuilt, overwritten, or relabeled. Do not download executables or ZIP files from reposts or unofficial mirrors.
 
 ## Current Features
 
@@ -108,6 +108,7 @@ If you may be in immediate danger or need urgent help, contact local emergency s
 - [Product Principles](docs/product-principles.md) defines the stable philosophical core and adaptable implementation layers.
 - [Architecture Decision Records](docs/decisions/) document significant product and architectural decisions.
 - [Build and Release Notes](BUILD_AND_RELEASE.md) covers developer packaging, validation, and release controls.
+- [v0.4.0-alpha.1 Candidate Record and Draft Release Notes](docs/releases/v0.4.0-alpha.1.md) records the exact candidate evidence, remaining gates, and proposed public notes.
 - [Historical Closed Alpha Documentation](docs/alpha/README.md) preserves an abandoned private testing plan as provenance. It is not an active enrollment, support, or release workflow.
 
 ## License
