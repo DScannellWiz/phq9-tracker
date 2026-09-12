@@ -1,5 +1,5 @@
-Current as of: 2026-09-10
-Last substantive update: 2026-09-10
+Current as of: 2026-09-12
+Last substantive update: 2026-09-12
 
 # Roadmap
 
@@ -11,7 +11,7 @@ Build a privacy-first, local-only mental health tracking application that helps 
 
 - PHQ-9 daily tracking.
 - GAD-7 daily tracking.
-- Unified Today's Check-In workflow.
+- Dynamic Today's Check-In workflow with independent questionnaire selection and completion status.
 - Correct 14-day symptom-frequency scoring for PHQ-9 and GAD-7.
 - Local SQLite storage.
 - Multi-assessment dashboard.
@@ -22,6 +22,21 @@ Build a privacy-first, local-only mental health tracking application that helps 
 - GitHub-ready project structure.
 - Automated tests.
 - Installer and portable build scripts.
+
+## Iteration 010: Extensible Questionnaire Framework - Implementation Complete
+
+- Promoted the reusable assessment registry to a questionnaire extension contract while preserving compatibility names and storage.
+- Kept PHQ-9 and GAD-7 as the only built-in, redistributable questionnaires.
+- Added per-date questionnaire selection and independent completion state so one or both questionnaires can be recorded on a date.
+- Added selectable questionnaire scope for PDFs and Analysis Workbooks.
+- Kept PHQ-9 item 9 context specific to PHQ-9 and added a universal safety message before item 1 and in each PDF footer.
+- Deferred custom questionnaire authoring, configurable scoring, and external definition files.
+
+### Deferred Cross-Page Scrolling Usability
+
+- Make every primary application page vertically scrollable whenever its content exceeds the available viewport, including when Len is not maximized and at the minimum supported window size.
+- Replace large jump-style wheel movement with smooth, fluid scrolling while preserving accessible scrollbar and keyboard navigation.
+- Validate the shared behavior across Today, Review, History / Manage Entries, Treatment Events, and How Scoring Works before considering the future usability iteration complete.
 
 ## Post-Iteration-009 Housekeeping: Len Product Rename - Completed
 

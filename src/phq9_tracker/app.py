@@ -155,6 +155,10 @@ def offer_to_open_generated_file(path: Path, output_name: str) -> None:
 DB_PATH = default_db_path()
 BUNDLED_PYTHON = Path(os.environ["PHQ9_TRACKER_BUNDLED_PYTHON"]) if os.environ.get("PHQ9_TRACKER_BUNDLED_PYTHON") else None
 DISCLAIMER = "This report is for discussion with a licensed clinician and is not a diagnosis."
+UNIVERSAL_SAFETY_MESSAGE = (
+    "If you feel unsafe or may act on thoughts of self-harm, contact local emergency services "
+    "or a crisis service now. Len does not monitor responses or provide emergency help."
+)
 DAILY_SCORE_LABEL = "Daily Severity Score"
 FREQUENCY_SCORE_LABEL = "14-Day Symptom Frequency Score"
 ANALYSIS_WORKBOOK_SCHEMA_VERSION = "1.1"
@@ -218,6 +222,9 @@ class AssessmentDefinition:
     short_name: str
     item_labels: list[str]
     max_score: int
+    source: str
+    redistribution_status: str
+    has_item9_safety_context: bool = False
 
     @property
     def item_count(self) -> int:
@@ -225,10 +232,39 @@ class AssessmentDefinition:
 
 
 ASSESSMENTS = {
-    "phq9": AssessmentDefinition("phq9", "PHQ-9", "PHQ-9", PHQ9_ITEM_LABELS, 27),
-    "gad7": AssessmentDefinition("gad7", "GAD-7", "GAD-7", GAD7_ITEM_LABELS, 21),
+    "phq9": AssessmentDefinition(
+        "phq9", "PHQ-9", "PHQ-9", PHQ9_ITEM_LABELS, 27,
+        "Patient Health Questionnaire-9", "Redistributable built-in", True,
+    ),
+    "gad7": AssessmentDefinition(
+        "gad7", "GAD-7", "GAD-7", GAD7_ITEM_LABELS, 21,
+        "Generalized Anxiety Disorder-7", "Redistributable built-in",
+    ),
 }
 ASSESSMENT_ORDER = ["phq9", "gad7"]
+# Questionnaire terminology is the public extension contract. Assessment aliases
+# remain for database and API compatibility with existing Len installations.
+QuestionnaireDefinition = AssessmentDefinition
+QUESTIONNAIRES = ASSESSMENTS
+QUESTIONNAIRE_ORDER = ASSESSMENT_ORDER
+
+
+def normalize_questionnaire_selection(questionnaire_ids=None) -> list[str]:
+    selected = list(QUESTIONNAIRE_ORDER if questionnaire_ids is None else questionnaire_ids)
+    unknown = [questionnaire_id for questionnaire_id in selected if questionnaire_id not in QUESTIONNAIRES]
+    if unknown:
+        raise ValueError(f"Unknown questionnaire: {unknown[0]}")
+    if not selected:
+        raise ValueError("Select at least one questionnaire.")
+    return list(dict.fromkeys(selected))
+
+
+def questionnaire_completion_status(entry_date: str) -> dict[str, str]:
+    completed = fetch_day_data(entry_date)["assessments"]
+    return {
+        questionnaire_id: "Complete" if questionnaire_id in completed else "Not completed"
+        for questionnaire_id in QUESTIONNAIRE_ORDER
+    }
 
 @dataclass
 class EntryRow:
@@ -447,12 +483,12 @@ def calculate_symptom_frequency_score_for_window(
     )
 
 
-def build_14_day_item_profile(end_date: str) -> list[dict[str, object]]:
-    """Build one derived current-window record per PHQ-9 and GAD-7 item."""
+def build_14_day_item_profile(end_date: str, questionnaire_ids=None) -> list[dict[str, object]]:
+    """Build one derived current-window record per selected questionnaire item."""
     window_end = datetime.fromisoformat(end_date).date()
     window_start = (window_end - timedelta(days=13)).isoformat()
     records: list[dict[str, object]] = []
-    for assessment_id in ASSESSMENT_ORDER:
+    for assessment_id in normalize_questionnaire_selection(questionnaire_ids):
         definition = ASSESSMENTS[assessment_id]
         entries = fetch_assessment_entries(assessment_id, window_start, end_date)
         score = calculate_symptom_frequency_score_for_window(
@@ -664,11 +700,14 @@ def overall_pattern_summary(
     phq_entries: list[AssessmentEntryRow],
     gad_entries: list[AssessmentEntryRow],
     end_date: str,
+    questionnaire_ids=None,
 ) -> str:
     """Describe adjacent 14-day patterns without diagnosis or causal language."""
     phrases = []
     coverage = []
-    for assessment_id, entries in (("phq9", phq_entries), ("gad7", gad_entries)):
+    entry_sets = {"phq9": phq_entries, "gad7": gad_entries}
+    for assessment_id in normalize_questionnaire_selection(questionnaire_ids):
+        entries = entry_sets[assessment_id]
         comparison = compare_recent_14_day_periods(entries, assessment_id, end_date)
         label = ASSESSMENTS[assessment_id].display_name
         coverage.append(f"{label} {comparison.current.entries_included}/14")
@@ -1269,8 +1308,9 @@ def upsert_daily_event(event_date: str, event_type: str, description: str = "") 
         return int(cursor.lastrowid)
 
 
-def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
+def _analysis_workbook_data(questionnaire_ids=None) -> dict[str, list[dict[str, object]]]:
     """Build normalized, analysis-ready records without changing the database schema."""
+    selected_ids = normalize_questionnaire_selection(questionnaire_ids)
     with closing(sqlite3.connect(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
         assessments = conn.execute(
@@ -1282,6 +1322,7 @@ def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
             ORDER BY entry_date, assessment_id, id
             """
         ).fetchall()
+        assessments = [row for row in assessments if row["assessment_id"] in selected_ids]
         events = conn.execute(
             """
             SELECT id, event_date, event_type, COALESCE(description, '') AS description, created_at
@@ -1417,6 +1458,7 @@ def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
         {"metadata_key": "workbook_schema_version", "metadata_value": ANALYSIS_WORKBOOK_SCHEMA_VERSION, "description": "Version of this normalized export layout."},
         {"metadata_key": "generated_at", "metadata_value": datetime.now().astimezone().isoformat(timespec="seconds"), "description": "Local generation timestamp in ISO 8601 format."},
         {"metadata_key": "application", "metadata_value": APPLICATION_NAME, "description": "Application that generated the workbook."},
+        {"metadata_key": "questionnaires_included", "metadata_value": "|".join(selected_ids), "description": "Questionnaires selected for this workbook."},
         {"metadata_key": "date_format", "metadata_value": "YYYY-MM-DD", "description": "Calendar-date format used in all date fields."},
         {"metadata_key": "daily_relationship", "metadata_value": "daily_record_id", "description": "Join records across worksheets by the deterministic day:YYYY-MM-DD identifier."},
         {"metadata_key": "assessment_relationship", "metadata_value": "assessment_record_id", "description": "Join Item Responses to Daily Assessments by assessment_record_id."},
@@ -1438,11 +1480,11 @@ def _analysis_workbook_data() -> dict[str, list[dict[str, object]]]:
         "Treatment Cycles": treatment_cycle_rows,
         "Metadata": metadata,
         "Daily Summary": daily_summary,
-        "14-Day Item Profile": build_14_day_item_profile(profile_end),
+        "14-Day Item Profile": build_14_day_item_profile(profile_end, selected_ids),
     }
 
 
-def export_analysis_workbook(path: str) -> None:
+def export_analysis_workbook(path: str, questionnaire_ids=None) -> None:
     """Write the separate normalized XLSX export used for external analysis."""
     if not path.lower().endswith(".xlsx"):
         raise ValueError("The analysis-ready export must be saved as an .xlsx workbook.")
@@ -1458,7 +1500,7 @@ def export_analysis_workbook(path: str) -> None:
         "Daily Summary": ["daily_record_id", "entry_date", "assessment_record_ids", "phq9_daily_severity_score", "phq9_severity_category", "gad7_daily_severity_score", "gad7_severity_category", "note_record_id", "treatment_event_record_ids", "treatment_event_count", "ketamine_recorded", "therapy_recorded", "medication_change_recorded"],
         "14-Day Item Profile": ["profile_record_id", "window_start", "window_end", "assessment_id", "assessment_name", "item_number", "item_label", "symptom_present_days", "recorded_day_coverage", "calendar_days", "frequency_score"],
     }
-    workbook_data = _analysis_workbook_data()
+    workbook_data = _analysis_workbook_data(questionnaire_ids)
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         for sheet_name, columns in sheet_columns.items():
             frame = pd.DataFrame(workbook_data[sheet_name], columns=columns)
@@ -1754,16 +1796,19 @@ def on_report_page(canvas, doc):
     canvas.saveState()
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#64748B"))
-    canvas.drawString(36, 20, DISCLAIMER)
-    canvas.drawRightString(576, 20, f"Page {doc.page}")
+    canvas.drawString(36, 28, DISCLAIMER)
+    canvas.drawRightString(576, 28, f"Page {doc.page}")
+    canvas.setFont("Helvetica", 6.5)
+    canvas.drawString(36, 17, "Safety: If you feel unsafe or may act on thoughts of self-harm, contact local emergency services or a crisis service now.")
+    canvas.drawString(36, 9, "Len does not monitor responses or provide emergency help.")
     canvas.restoreState()
 
 
-def available_report_date_range() -> tuple[str, str]:
+def available_report_date_range(questionnaire_ids=None) -> tuple[str, str]:
     """Return the full assessment-history range used by one-click PDF reports."""
     dates = [
         row.entry_date
-        for assessment_id in ASSESSMENT_ORDER
+        for assessment_id in normalize_questionnaire_selection(questionnaire_ids)
         for row in fetch_assessment_entries(assessment_id)
     ]
     if not dates:
@@ -1771,26 +1816,29 @@ def available_report_date_range() -> tuple[str, str]:
     return min(dates), max(dates)
 
 
-def generate_report(start: str, end: str, pdf_path: str) -> None:
+def generate_report(start: str, end: str, pdf_path: str, questionnaire_ids=None) -> None:
     if colors is None or PILImage is None:
         raise RuntimeError("PDF export requires reportlab and Pillow.")
-    entries = fetch_assessment_entries("phq9", start, end)
-    gad_entries = fetch_assessment_entries("gad7", start, end)
+    selected_ids = normalize_questionnaire_selection(questionnaire_ids)
+    entries = fetch_assessment_entries("phq9", start, end) if "phq9" in selected_ids else []
+    gad_entries = fetch_assessment_entries("gad7", start, end) if "gad7" in selected_ids else []
     if not entries and not gad_entries:
         raise ValueError("No entries found in the selected date range.")
     comparison_start = (datetime.fromisoformat(end).date() - timedelta(days=27)).isoformat()
-    comparison_phq_entries = fetch_assessment_entries("phq9", comparison_start, end)
-    comparison_gad_entries = fetch_assessment_entries("gad7", comparison_start, end)
+    comparison_phq_entries = fetch_assessment_entries("phq9", comparison_start, end) if "phq9" in selected_ids else []
+    comparison_gad_entries = fetch_assessment_entries("gad7", comparison_start, end) if "gad7" in selected_ids else []
     events = [
         (event_id, event_date, normalize_event_type(event_type), description)
         for event_id, event_date, event_type, description in fetch_events(start, end)
     ]
     cycles = treatment_cycles(entries, events, end)
-    highlights = [
-        *symptom_highlights("phq9", comparison_phq_entries, end, limit=2),
-        *symptom_highlights("gad7", comparison_gad_entries, end, limit=2),
-    ]
-    item_profile = build_14_day_item_profile(end)
+    highlights = []
+    if "phq9" in selected_ids:
+        highlights.extend(symptom_highlights("phq9", comparison_phq_entries, end, limit=2))
+    if "gad7" in selected_ids:
+        highlights.extend(symptom_highlights("gad7", comparison_gad_entries, end, limit=2))
+    item_profile = build_14_day_item_profile(end, selected_ids)
+    selected_names = " and ".join(QUESTIONNAIRES[questionnaire_id].display_name for questionnaire_id in selected_ids)
 
     styles = getSampleStyleSheet()
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -1822,10 +1870,11 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
         Paragraph(f"{APPLICATION_NAME} Clinician Discussion Report", styles["Title"]),
         Paragraph(f"Date range: {start} to {end}", styles["Normal"]),
         Paragraph(DISCLAIMER, styles["BodyText"]),
+        Paragraph(UNIVERSAL_SAFETY_MESSAGE, styles["BodyText"]),
         Spacer(1, 0.18 * inch),
         Paragraph("How to Read This Report", styles["Heading1"]),
         Paragraph(
-            "<b>Daily Severity Score:</b> the item responses from one PHQ-9 or GAD-7 check-in are added together. "
+            f"<b>Daily Severity Score:</b> the item responses from one {selected_names} check-in are added together. "
             "It describes the severity recorded on that particular day.",
             styles["BodyText"],
         ),
@@ -1846,7 +1895,9 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
         Paragraph("Recorded Period Overview", styles["Heading1"]),
     ]
     glance_rows = [["Assessment", "Recorded check-ins", "Most recent score", "Most recent date"]]
-    for assessment_id, assessment_entries in (("phq9", entries), ("gad7", gad_entries)):
+    entry_sets = {"phq9": entries, "gad7": gad_entries}
+    for assessment_id in selected_ids:
+        assessment_entries = entry_sets[assessment_id]
         name = ASSESSMENTS[assessment_id].display_name
         glance_rows.append(
             [
@@ -1864,7 +1915,7 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
         wrap_columns={0, 1, 2, 3},
     )
     story.append(Paragraph("Overall pattern", styles["Heading2"]))
-    story.append(Paragraph(overall_pattern_summary(comparison_phq_entries, comparison_gad_entries, end), styles["BodyText"]))
+    story.append(Paragraph(overall_pattern_summary(comparison_phq_entries, comparison_gad_entries, end, selected_ids), styles["BodyText"]))
     story.append(Paragraph("Symptom highlights", styles["Heading2"]))
     for highlight in highlights:
         story.append(Paragraph(f"- {highlight}", styles["BodyText"]))
@@ -1878,8 +1929,10 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
 
     story.append(PageBreak())
     story.append(Paragraph("Recorded Symptom Trends", styles["Heading1"]))
-    add_chart(story, str(phq_chart), "PHQ-9 scores across the selected period", width=6.1 * inch)
-    add_chart(story, str(gad_chart), "GAD-7 scores across the selected period", width=6.1 * inch)
+    if entries:
+        add_chart(story, str(phq_chart), "PHQ-9 scores across the selected period", width=6.1 * inch)
+    if gad_entries:
+        add_chart(story, str(gad_chart), "GAD-7 scores across the selected period", width=6.1 * inch)
     q9_context = item9_context(entries, end)
     q9_summary = item9_context_summary(q9_context)
     if q9_summary:
@@ -1900,7 +1953,7 @@ def generate_report(start: str, end: str, pdf_path: str) -> None:
             styles["BodyText"],
         )
     )
-    for assessment_id in ASSESSMENT_ORDER:
+    for assessment_id in selected_ids:
         profile_rows = [row for row in item_profile if row["assessment_id"] == assessment_id]
         add_pdf_table(
             story,
@@ -2266,7 +2319,7 @@ class PHQ9App(Tk):
         menu = Menu(self)
         file_menu = Menu(menu, tearoff=0)
         file_menu.add_command(label="Import spreadsheet...", command=self.import_file)
-        file_menu.add_command(label="Export analysis workbook...", command=self.export_analysis_file)
+        file_menu.add_command(label="Export analysis workbook...", command=self.choose_analysis_export)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.destroy)
         menu.add_cascade(label="File", menu=file_menu)
@@ -2320,8 +2373,8 @@ class PHQ9App(Tk):
         action_commands = {
             "Refresh": self.refresh_all,
             "Import Spreadsheet": self.import_file,
-            "Generate PDF": self.create_report,
-            "Analysis Workbook": self.export_analysis_file,
+            "Generate PDF": self.choose_report,
+            "Analysis Workbook": self.choose_analysis_export,
             "Open Reports Folder": self.open_reports_folder,
         }
         for index, label in enumerate(REVIEW_ACTION_LABELS):
@@ -2383,7 +2436,28 @@ class PHQ9App(Tk):
         self.gad_long_chart.pack(fill=BOTH, expand=True, padx=6, pady=(3, 6))
 
     def build_entry_tab(self):
-        form = LabelFrame(self.entry_tab, text="Today's Check-In", bg="#F8FAFC", padx=12, pady=12)
+        self.entry_canvas = Canvas(self.entry_tab, bg="#F8FAFC", highlightthickness=0)
+        self.entry_scrollbar = ttk.Scrollbar(self.entry_tab, orient="vertical", command=self.entry_canvas.yview)
+        self.entry_canvas.configure(yscrollcommand=self.entry_scrollbar.set)
+        self.entry_scrollbar.pack(side=RIGHT, fill="y")
+        self.entry_canvas.pack(side=LEFT, fill=BOTH, expand=True)
+        self.entry_scroll_content = Frame(self.entry_canvas, bg="#F8FAFC")
+        self.entry_scroll_window = self.entry_canvas.create_window(
+            (0, 0),
+            window=self.entry_scroll_content,
+            anchor="nw",
+        )
+        self.entry_scroll_content.bind(
+            "<Configure>",
+            lambda _event: self.entry_canvas.configure(scrollregion=self.entry_canvas.bbox("all")),
+        )
+        self.entry_canvas.bind(
+            "<Configure>",
+            lambda event: self.entry_canvas.itemconfigure(self.entry_scroll_window, width=event.width),
+        )
+        self.bind_all("<MouseWheel>", self.scroll_today_checkin)
+
+        form = LabelFrame(self.entry_scroll_content, text="Today's Check-In", bg="#F8FAFC", padx=12, pady=12)
         form.pack(fill=BOTH, expand=True, padx=4, pady=4)
         Button(form, text="← Previous Day", command=lambda: self.navigate_checkin_date(-1)).grid(row=0, column=0, sticky="w", padx=(0, 8))
         self.date_var = StringVar(value=date.today().isoformat())
@@ -2398,12 +2472,43 @@ class PHQ9App(Tk):
         self.checkin_mode.grid(row=0, column=4, sticky="w", padx=8)
 
         self.assessment_item_vars = {}
+        self.questionnaire_selected_vars = {}
+        self.questionnaire_status_labels = {}
+        self.questionnaire_boxes = {}
         assessment_area = Frame(form, bg="#F8FAFC")
         assessment_area.grid(row=1, column=0, columnspan=5, sticky="nsew", pady=(8, 4))
+        Label(
+            assessment_area,
+            text=UNIVERSAL_SAFETY_MESSAGE,
+            bg="#FFF7ED",
+            fg="#9A3412",
+            wraplength=1000,
+            justify=LEFT,
+            padx=10,
+            pady=8,
+        ).grid(row=0, column=0, columnspan=len(QUESTIONNAIRE_ORDER), sticky="we", pady=(0, 8))
+        selector = Frame(assessment_area, bg="#F8FAFC")
+        selector.grid(row=1, column=0, columnspan=len(QUESTIONNAIRE_ORDER), sticky="w", pady=(0, 8))
+        Label(selector, text="Questionnaires for this date:", bg="#F8FAFC", font=("Segoe UI", 10, "bold")).pack(side=LEFT)
+        for assessment_id in QUESTIONNAIRE_ORDER:
+            definition = QUESTIONNAIRES[assessment_id]
+            selected_var = IntVar(value=1)
+            self.questionnaire_selected_vars[assessment_id] = selected_var
+            Checkbutton(
+                selector,
+                text=definition.display_name,
+                variable=selected_var,
+                command=self.update_questionnaire_visibility,
+                bg="#F8FAFC",
+            ).pack(side=LEFT, padx=(10, 2))
+            status = Label(selector, text="Not completed", bg="#F8FAFC", fg="#64748B")
+            status.pack(side=LEFT, padx=(0, 8))
+            self.questionnaire_status_labels[assessment_id] = status
         for col_idx, assessment_id in enumerate(ASSESSMENT_ORDER):
             definition = ASSESSMENTS[assessment_id]
             box = LabelFrame(assessment_area, text=definition.display_name, bg="#F8FAFC", padx=10, pady=10)
-            box.grid(row=0, column=col_idx, sticky="nsew", padx=(0, 10))
+            box.grid(row=2, column=col_idx, sticky="nsew", padx=(0, 10))
+            self.questionnaire_boxes[assessment_id] = box
             self.assessment_item_vars[assessment_id] = []
             for idx, label in enumerate(definition.item_labels, start=1):
                 Label(box, text=f"{idx}. {label}", bg="#F8FAFC", wraplength=410, justify=LEFT).grid(row=idx, column=0, sticky="w", pady=3)
@@ -2465,7 +2570,12 @@ class PHQ9App(Tk):
         Label(self.checkin_details, text="Event description (optional)", bg="#F8FAFC").grid(row=4, column=0, sticky="nw", pady=(6, 0))
         self.checkin_event_desc = Text(self.checkin_details, height=2, width=72)
         self.checkin_event_desc.grid(row=4, column=1, columnspan=3, sticky="we", padx=8, pady=(6, 0))
-        Button(self.checkin_details, text="Save Optional Details", command=self.save_optional_details).grid(row=5, column=1, sticky="w", padx=8, pady=10)
+        self.save_optional_details_button = Button(
+            self.checkin_details,
+            text="Save Optional Details",
+            command=self.save_optional_details,
+        )
+        self.save_optional_details_button.grid(row=5, column=1, sticky="w", padx=8, pady=10)
         Button(self.checkin_details, text="Not Right Now", command=self.hide_checkin_details).grid(row=5, column=2, sticky="w", padx=8, pady=10)
         Button(self.checkin_details, text="Add Another Treatment Event", command=lambda: self.open_history_for_date(self.date_var.get())).grid(row=5, column=3, sticky="e", padx=8, pady=10)
         self.checkin_details.columnconfigure(3, weight=1)
@@ -2594,13 +2704,31 @@ class PHQ9App(Tk):
 
     def show_checkin_details(self):
         self.checkin_details.grid()
+        self.update_idletasks()
+        self.entry_canvas.configure(scrollregion=self.entry_canvas.bbox("all"))
+        self.entry_canvas.yview_moveto(1.0)
 
     def hide_checkin_details(self):
         self.checkin_details.grid_remove()
+        self.entry_canvas.yview_moveto(0.0)
         messagebox.showinfo("Today's Check-In", "Today's check-in is recorded.")
+
+    def scroll_today_checkin(self, event):
+        """Scroll the Today form only when the pointer is inside that tab."""
+        if self.notebook.select() != str(self.entry_tab):
+            return None
+        widget = self.winfo_containing(event.x_root, event.y_root)
+        while widget is not None and widget is not self.entry_canvas:
+            widget = getattr(widget, "master", None)
+        if widget is not self.entry_canvas:
+            return None
+        units = -1 if event.delta > 0 else 1
+        self.entry_canvas.yview_scroll(units * 3, "units")
+        return "break"
 
     def checkin_state(self) -> tuple:
         return (
+            tuple((assessment_id, self.questionnaire_selected_vars[assessment_id].get()) for assessment_id in QUESTIONNAIRE_ORDER),
             tuple(tuple(var.get() for var in self.assessment_item_vars[assessment_id]) for assessment_id in ASSESSMENT_ORDER),
             self.notes_box.get("1.0", END).strip(),
             self.note_tag.get().strip(),
@@ -2609,6 +2737,14 @@ class PHQ9App(Tk):
             self.custom_event_type.get().strip(),
             self.checkin_event_desc.get("1.0", END).strip(),
         )
+
+    def update_questionnaire_visibility(self):
+        for column, assessment_id in enumerate(QUESTIONNAIRE_ORDER):
+            box = self.questionnaire_boxes[assessment_id]
+            if self.questionnaire_selected_vars[assessment_id].get():
+                box.grid(row=2, column=column, sticky="nsew", padx=(0, 10))
+            else:
+                box.grid_remove()
 
     def has_unsaved_checkin_changes(self) -> bool:
         return self._checkin_snapshot is not None and self.checkin_state() != self._checkin_snapshot
@@ -2668,8 +2804,14 @@ class PHQ9App(Tk):
         has_data = bool(assessments or day_data["notes"] or day_data["events"])
         for assessment_id in ASSESSMENT_ORDER:
             row = assessments.get(assessment_id)
+            self.questionnaire_selected_vars[assessment_id].set(1 if row or not has_data else 0)
+            self.questionnaire_status_labels[assessment_id].config(
+                text="Complete" if row else "Not completed",
+                fg="#047857" if row else "#64748B",
+            )
             for idx, var in enumerate(self.assessment_item_vars[assessment_id]):
                 var.set(row.items[idx] if row else 0)
+        self.update_questionnaire_visibility()
         self.notes_box.delete("1.0", END)
         self.notes_box.insert("1.0", day_data["notes"])
         self.note_tag.set(day_data["note_tag"])
@@ -3080,12 +3222,24 @@ class PHQ9App(Tk):
             messagebox.showerror("Import failed", str(exc))
 
     def export_analysis_file(self):
+        PHQ9App._export_analysis_file_for(self, QUESTIONNAIRE_ORDER)
+
+    def choose_analysis_export(self):
+        self.choose_output_questionnaires("Choose workbook questionnaires", self._export_analysis_file_for)
+
+    def _export_analysis_file_for(self, selected_ids):
         try:
             path = next_available_output_path(f"Len_Analysis_{date.today().isoformat()}.xlsx")
             if pd is None:
-                run_bundled_cli(["--analysis-export", str(path)], ("pandas", "openpyxl"))
+                run_bundled_cli(
+                    ["--analysis-export", str(path), "--questionnaires", ",".join(selected_ids)],
+                    ("pandas", "openpyxl"),
+                )
             else:
-                export_analysis_workbook(str(path))
+                if selected_ids == QUESTIONNAIRE_ORDER:
+                    export_analysis_workbook(str(path))
+                else:
+                    export_analysis_workbook(str(path), selected_ids)
             offer_to_open_generated_file(path, "Analysis workbook")
         except Exception as exc:
             messagebox.showerror("Analysis export failed", str(exc))
@@ -3118,8 +3272,16 @@ class PHQ9App(Tk):
             )
             return
         existing = fetch_day_data(entry_date)
+        selected = [
+            assessment_id
+            for assessment_id in QUESTIONNAIRE_ORDER
+            if self.questionnaire_selected_vars[assessment_id].get()
+        ]
+        if not selected:
+            messagebox.showerror("No questionnaire selected", "Select at least one questionnaire to record.")
+            return
         saved = []
-        for assessment_id in ASSESSMENT_ORDER:
+        for assessment_id in selected:
             definition = ASSESSMENTS[assessment_id]
             items = [int(var.get()) for var in self.assessment_item_vars[assessment_id]]
             if any(score < 0 or score > 3 for score in items):
@@ -3186,9 +3348,48 @@ class PHQ9App(Tk):
         self.refresh_events()
         messagebox.showinfo("Saved", f"Saved event for {event_date}.")
 
+    def choose_output_questionnaires(self, title, on_confirm):
+        dialog = Toplevel(self)
+        dialog.title(title)
+        dialog.transient(self)
+        dialog.grab_set()
+        Label(dialog, text="Include questionnaires", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=16, pady=(14, 6))
+        variables = {}
+        for questionnaire_id in QUESTIONNAIRE_ORDER:
+            variable = IntVar(value=1)
+            variables[questionnaire_id] = variable
+            Checkbutton(
+                dialog,
+                text=QUESTIONNAIRES[questionnaire_id].display_name,
+                variable=variable,
+            ).pack(anchor="w", padx=18, pady=3)
+
+        def confirm():
+            selected_ids = [questionnaire_id for questionnaire_id, variable in variables.items() if variable.get()]
+            if not selected_ids:
+                messagebox.showerror("No questionnaire selected", "Select at least one questionnaire.", parent=dialog)
+                return
+            dialog.destroy()
+            on_confirm(selected_ids)
+
+        controls = Frame(dialog)
+        controls.pack(fill="x", padx=12, pady=12)
+        Button(controls, text="Continue", command=confirm).pack(side=LEFT, padx=4)
+        Button(controls, text="Cancel", command=dialog.destroy).pack(side=LEFT, padx=4)
+
     def create_report(self):
+        PHQ9App._create_report_for(self, QUESTIONNAIRE_ORDER)
+
+    def choose_report(self):
+        self.choose_output_questionnaires("Choose report questionnaires", self._create_report_for)
+
+    def _create_report_for(self, selected_ids):
         try:
-            start, end = available_report_date_range()
+            start, end = (
+                available_report_date_range()
+                if selected_ids == QUESTIONNAIRE_ORDER
+                else available_report_date_range(selected_ids)
+            )
         except ValueError as exc:
             messagebox.showinfo("Report unavailable", str(exc))
             return
@@ -3196,11 +3397,14 @@ class PHQ9App(Tk):
             target = next_available_output_path(f"Len_Report_{start}_to_{end}.pdf")
             if colors is None or PILImage is None:
                 run_bundled_cli(
-                    ["--report-pdf", str(target)],
+                    ["--report-pdf", str(target), "--questionnaires", ",".join(selected_ids)],
                     ("reportlab", "PIL"),
                 )
             else:
-                generate_report(start, end, str(target))
+                if selected_ids == QUESTIONNAIRE_ORDER:
+                    generate_report(start, end, str(target))
+                else:
+                    generate_report(start, end, str(target), selected_ids)
             offer_to_open_generated_file(target, "PDF report")
         except Exception as exc:
             messagebox.showerror("Report failed", str(exc))
@@ -3212,19 +3416,21 @@ def main():
     parser.add_argument("--launch", action="store_true", help="Launch the GUI after command-line actions.")
     parser.add_argument("--report-pdf", help="Generate a full-history PDF report at this output path.")
     parser.add_argument("--analysis-export", help="Export a normalized analysis-ready XLSX workbook, then exit.")
+    parser.add_argument("--questionnaires", help="Comma-separated questionnaire IDs to include in generated outputs.")
     args = parser.parse_args()
 
     init_db()
+    selected_ids = normalize_questionnaire_selection(args.questionnaires.split(",") if args.questionnaires else None)
     if args.import_path:
         count = import_spreadsheet(args.import_path)
         print(f"Imported or updated {count} entries.")
     if args.report_pdf:
         pdf_path = Path(args.report_pdf)
-        start, end = available_report_date_range()
-        generate_report(start, end, str(pdf_path))
+        start, end = available_report_date_range(selected_ids)
+        generate_report(start, end, str(pdf_path), selected_ids)
         print(f"Saved report to {pdf_path}")
     if args.analysis_export:
-        export_analysis_workbook(args.analysis_export)
+        export_analysis_workbook(args.analysis_export, selected_ids)
         print(f"Saved analysis workbook to {args.analysis_export}")
     has_cli_action = bool(args.import_path or args.report_pdf or args.analysis_export)
     if args.launch or not has_cli_action:

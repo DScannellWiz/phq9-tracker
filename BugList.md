@@ -1,5 +1,30 @@
-Current as of: 2026-09-10
-Last substantive update: 2026-09-10
+Current as of: 2026-09-12
+Last substantive update: 2026-09-12
+
+ITERATION NOTE: Questionnaire selection and completion status
+
+Status: Implemented in Iteration 010; manual Windows GUI validation pending
+
+- PHQ-9 and GAD-7 can be selected independently for a date; an unselected questionnaire is not stored as a zero-score entry.
+- Completion state is derived from saved records and is displayed separately for each questionnaire.
+- PDF and workbook generation can be limited to selected questionnaires.
+- PHQ-9 item 9 context remains PHQ-9-only. A universal safety message appears before questionnaire item 1 and in PDF footers.
+
+---
+
+BUG: Today's Check-In optional submit controls can be clipped
+
+Status: Fixed in Iteration 010; manual Windows confirmation pending
+
+At common Windows display heights, the expanded optional-details section extended below the application window with no way to reach its submit controls.
+
+Resolution:
+
+- Made only the Today's Check-In page vertically scrollable while preserving its existing form and save behavior.
+- Added mouse-wheel and visible-scrollbar navigation.
+- Automatically scrolls to the optional-details controls after the core check-in is saved, then returns to the top after the optional flow closes.
+
+---
 
 BUG: Report generation dependency detection
 

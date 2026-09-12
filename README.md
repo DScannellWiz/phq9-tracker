@@ -1,4 +1,4 @@
-Current as of: 2026-09-10
+Current as of: 2026-09-12
 Last substantive update: 2026-09-10
 
 # Len
@@ -17,14 +17,15 @@ No public binary download is available yet. The existing `PHQ9Tracker-Portable-0
 
 ## Current Features
 
-- Today's Check-In for PHQ-9, GAD-7, optional daily notes, and multiple treatment events.
+- A questionnaire-based Today's Check-In that can record PHQ-9, GAD-7, or both on the same date and shows independent completion status.
+- A universal safety message before the first question and in every PDF footer; PHQ-9 item 9 context remains PHQ-9-only.
 - Previous Day and Next Day navigation, existing-date loading, future-date prevention, and unsaved-change protection.
 - History / Manage Entries tools for editing and confirmed deletion of assessments, notes, and treatment events.
 - Clearly labeled Daily Severity Scores and 14-Day Symptom Frequency Scores with recorded-day coverage.
 - Review summaries, recent charts, treatment-cycle views, and long-term trends.
 - Chart point values available by hover, click, and keyboard.
 - A compact full-history PDF designed to support—not replace—a conversation with a licensed clinician.
-- A normalized XLSX Analysis Workbook with assessment, item-response, note, treatment-event, cycle, metadata, daily-summary, and current 14-day item-profile records.
+- Selectable PDF and normalized XLSX outputs with questionnaire-specific trends and current 14-day item-profile records.
 - One local `reports` folder for both generated outputs.
 
 ## Running from Source

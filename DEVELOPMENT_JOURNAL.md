@@ -1,4 +1,4 @@
-Current as of: 2026-09-10
+Current as of: 2026-09-12
 Last substantive update: 2026-09-10
 
 # Development Journal
@@ -338,6 +338,16 @@ Daniel approved removing internal and nice-to-have release-control details from 
 ### Validation and consequences
 
 A focused text review confirmed that the removed terms no longer appear in the Tester Guide, that all nine approved tester-facing Release Information fields remain, and that the privacy, local-data, backup, support, testing, reporting, safety, and closeout guidance is unchanged except for the removal of internal status wording. Markdown whitespace and the exact changed-file inventory were also checked. No application code, test code, database, report, export, personal data, or health information changed.
+
+## September 12, 2026: Iteration 010 Extensible Questionnaire Framework
+
+Iteration 010 promotes the existing reusable assessment model to a questionnaire-oriented extension contract while retaining database, package, executable, and environment-variable compatibility. PHQ-9 and GAD-7 remain the only registered built-ins. Their source and redistribution status now travel with the definition metadata, and PHQ-9 item 9 behavior is explicitly instrument-specific.
+
+Today's Check-In now lets the user choose either or both questionnaires and derives an independent Complete or Not completed state from saved records. An unselected questionnaire is not silently stored as an all-zero response. The universal safety message appears before the first question and in every PDF footer. PDF and Analysis Workbook generation allow questionnaire selection and filter the derived 14-day profiles accordingly.
+
+Custom questionnaire authoring, external definitions, configurable scoring rules, and release packaging are deliberately deferred. Existing records require no destructive migration because the additive generic `assessment_entries` path introduced in Iteration 004 remains authoritative for shared questionnaire behavior, while `phq9_entries` stays synchronized for compatibility.
+
+Daniel's GUI review found that the optional-details submission controls extended below the available Today-page viewport. The form now uses a vertical scrollbar, supports mouse-wheel scrolling while the pointer is inside the Today page, automatically brings the optional controls into view after the core check-in is saved, and returns to the top when optional entry closes. A live 1180 x 780 Tk geometry check confirmed that the Save Optional Details button was fully visible after the automatic scroll.
 
 ## Ongoing Journal Practice
 
